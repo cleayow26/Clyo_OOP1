@@ -1,36 +1,68 @@
 package com.clyo.frontend;
 
 public class Enemy {
-    String name;
-    int hp;
-    int maxHp;
+    private String name;
+    private int hp;
+    private int maxHp;
+    private long scoreValue;
 
     public Enemy(String name, int hp) {
         this.name = name;
         this.hp = hp;
         this.maxHp = hp;
+        this.scoreValue = 0;
     }
 
-    public void takeDamage(int damage) {
-        hp -= damage;
+    public String getName() {
+        return name;
+    }
 
-        if (hp < 0) {
-            hp = 0;
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public int getHp() {
+        return hp;
+    }
+
+    public void setHp(int hp) {
+        this.hp = Math.max(0, hp);
+    }
+
+    public int getMaxHp() {
+        return maxHp;
+    }
+
+    public long getScoreValue() {
+        return scoreValue;
+    }
+
+    public void setScoreValue(long scoreValue) {
+        this.scoreValue = scoreValue;
+    }
+
+    public boolean takeDamage(int damage) {
+        setHp(getHp() - damage);
+
+        System.out.println(getName() + " took " + damage
+                + " damage! HP: " + getHp() + "/" + getMaxHp());
+
+        if (getHp() == 0) {
+            System.out.println(getName() + " was defeated!");
+            return true;
         }
 
-        System.out.println(name + " took " + damage + " damage! HP: " + hp + "/" + maxHp);
-
-        if (hp == 0) {
-            System.out.println(name + " was defeated!");
-        }
+        return false;
     }
 
     public void attack(Player player, int damage) {
-        System.out.println(name + " unleashes bullet barrage on " + player.name + "!");
+        System.out.println(getName()
+                + " unleashes bullet barrage on "
+                + player.getName() + "!");
         player.takeDamage(damage);
     }
 
     public boolean isAlive() {
-        return hp > 0;
+        return getHp() > 0;
     }
 }
