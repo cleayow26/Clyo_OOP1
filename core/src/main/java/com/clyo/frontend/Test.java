@@ -1,0 +1,269 @@
+package com.clyo.frontend;
+
+import com.clyo.frontend.objects.Player;
+import com.clyo.frontend.objects.bullets.Bullet;
+import com.clyo.frontend.objects.enemies.Enemy;
+import com.clyo.frontend.objects.enemies.Fairy;
+import com.clyo.frontend.objects.enemies.Boss;
+import com.clyo.frontend.objects.items.Item;
+import com.clyo.frontend.objects.items.ItemType;
+
+public class Test {
+
+    public static void main(String[] args) {
+
+        System.out.println(
+                "=== TOUHOU OOP PRACTICUM - MODULE 1: BASIC CLASSES & OBJECT INTERACTION ==="
+        );
+
+        Player reimu = new Player(
+                "Reimu Hakurei",
+                100,
+                15,
+                3
+        );
+
+        Enemy fairyBoss = new Enemy(
+                "Cirno (Stage 2 Boss)",
+                50
+        );
+
+        System.out.println("\n--- Initial Battle State ---");
+
+        System.out.println(
+                "Player: " + reimu.getName()
+                + " | HP: " + reimu.getHp()
+                + " | Power: " + reimu.getPower()
+                + " | SpellCards: " + reimu.getSpellCards()
+        );
+
+        System.out.println(
+                "Enemy:  " + fairyBoss.getName()
+                + " | HP: " + fairyBoss.getHp()
+        );
+
+        System.out.println("\n--- Turn 1: Player Shoots Enemy ---");
+        reimu.shoot(fairyBoss);
+
+        System.out.println("\n--- Turn 2: Enemy Counter-attacks ---");
+        fairyBoss.attack(reimu, 30);
+
+        System.out.println("\n--- Turn 3: Player Shoots Enemy Finishing Blow ---");
+        reimu.shoot(fairyBoss);
+
+        System.out.println("\n--- Turn 4: Enemy Deals Fatal Damage to Reimu ---");
+        fairyBoss.attack(reimu, 80);
+
+        System.out.println("\n=== Battle Simulation Complete ===");
+
+
+        // ==========================================
+        // MODULE 2: ENCAPSULATION, INHERITANCE & SCORE SYSTEM
+        // ==========================================
+
+        System.out.println(
+                "\n\n=== TOUHOU OOP PRACTICUM - MODULE 2: ENCAPSULATION, INHERITANCE & SCORE SYSTEM ==="
+        );
+
+        Player reimu2 = new Player(
+                "Reimu Hakurei",
+                100,
+                15,
+                3
+        );
+
+        Fairy fairy = new Fairy(
+                "Stage 1 Fairy",
+                20
+        );
+
+        Boss cirno = new Boss(
+                "Cirno (Stage 2 Boss)",
+                150
+        );
+
+        Item pointItem = new Item(
+                200,
+                450,
+                12,
+                12,
+                120f,
+                "Point Item",
+                1000L
+        );
+
+        System.out.println("\n--- Testing Encapsulation & Inheritance ---");
+
+        System.out.println(
+                "Player: " + reimu2.getName()
+                + " | Position: ("
+                + reimu2.getX() + ", "
+                + reimu2.getY() + ")"
+        );
+
+        System.out.println(
+                "Fairy:  " + fairy.getName()
+                + " | Defeat Worth: "
+                + fairy.getScoreValue() + " pts"
+        );
+
+        System.out.println(
+                "Boss:   " + cirno.getName()
+                + " | Defeat Worth: "
+                + cirno.getScoreValue()
+                + " pts | Size: "
+                + cirno.getWidth() + "x"
+                + cirno.getHeight()
+        );
+
+        System.out.println(
+                "Item:   " + pointItem.getItemType()
+                + " | Value: "
+                + pointItem.getScoreValue()
+                + " pts | Speed: "
+                + pointItem.getSpeed()
+        );
+
+
+        // ==========================================
+        // MODULE 2: ITEM MOVEMENT
+        // ==========================================
+
+        System.out.println("\n--- Testing Item Movement Update ---");
+
+        System.out.println(
+                "Initial Item Y: "
+                + pointItem.getY()
+        );
+
+        pointItem.update(0.5f);
+
+        System.out.println(
+                "Item Y after 0.5s update: "
+                + pointItem.getY()
+                + " (linear downward movement)"
+        );
+
+
+        // ==========================================
+        // MODULE 2: SCORING SYSTEM
+        // ==========================================
+
+        System.out.println("\n--- Testing Scoring System ---");
+
+        System.out.println(
+                "Initial Score: "
+                + reimu2.getScore()
+        );
+
+        reimu2.shoot(fairy);
+
+        reimu2.collectItem(pointItem);
+
+        reimu2.shoot(cirno);
+
+        System.out.println(
+                "Final Score: "
+                + reimu2.getScore()
+                + " pts"
+        );
+
+
+        // ==========================================
+        // MODULE 3: ITEM TYPE ENUM
+        // ==========================================
+
+        System.out.println("\n--- Testing ItemType Enum ---");
+
+        Item powerItem = new Item(
+                300,
+                300,
+                ItemType.POWER
+        );
+
+        System.out.println(
+                "ItemType Enum: "
+                + powerItem.getItemTypeEnum()
+        );
+
+        System.out.println(
+                "ItemType String: "
+                + powerItem.getItemType()
+        );
+
+        System.out.println(
+                "Score Value: "
+                + powerItem.getScoreValue()
+        );
+
+        System.out.println(
+                "Power Bonus: "
+                + powerItem.getItemTypeEnum().getPowerBonus()
+        );
+
+        System.out.println(
+                "\n=== Module 3 Pre-CS Test Completed Successfully ==="
+        );
+
+
+        // ==========================================
+        // MODULE 4: BULLET & OBJECT DESTRUCTION
+        // ==========================================
+
+        System.out.println(
+                "\n\n=== TOUHOU OOP PRACTICUM - MODULE 4: BULLET & OBJECT DESTRUCTION ==="
+        );
+
+        Player reimu3 = new Player(
+                "Reimu Hakurei",
+                100,
+                15,
+                3
+        );
+
+        System.out.println("\n--- Testing Bullet Creation ---");
+
+        Bullet bullet = reimu3.shootBullet();
+
+        System.out.println(
+                "Bullet created at: ("
+                + bullet.getX()
+                + ", "
+                + bullet.getY()
+                + ") | Damage: "
+                + bullet.getDamage()
+        );
+
+        System.out.println("\n--- Testing Bullet Movement ---");
+
+        bullet.update(0.1f);
+
+        System.out.println(
+                "Bullet Y after 0.1s: "
+                + bullet.getY()
+        );
+
+        System.out.println(
+                "Is bullet off screen? "
+                + bullet.isOffScreen(640, 480)
+        );
+
+        System.out.println("\n--- Testing Destroy System ---");
+
+        System.out.println(
+                "Bullet destroyed before destroy(): "
+                + bullet.isDestroyed()
+        );
+
+        bullet.destroy();
+
+        System.out.println(
+                "Bullet destroyed after destroy(): "
+                + bullet.isDestroyed()
+        );
+
+        System.out.println(
+                "\n=== Module 4 Pre-CS Test Completed Successfully ==="
+        );
+    }
+}
