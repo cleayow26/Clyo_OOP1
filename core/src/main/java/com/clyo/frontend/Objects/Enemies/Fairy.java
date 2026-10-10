@@ -1,25 +1,21 @@
+
 package com.clyo.frontend.objects.enemies;
 
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.clyo.frontend.systems.AssetManager;
 
 public class Fairy extends Enemy {
 
-    public Fairy(
-            String name,
-            int hp) {
-
-        super(
-                name,
-                hp
-        );
-
+    public Fairy(String name, int hp) {
+        super(name, hp);
         setScoreValue(100);
+        setAnimation(
+                AssetManager.getInstance().getAnimation("fairy_idle")
+        );
     }
 
-    public Fairy(
-            float x,
-            float y) {
-
+    public Fairy(float x, float y) {
         super(
                 x,
                 y,
@@ -30,18 +26,25 @@ public class Fairy extends Enemy {
         );
 
         setScoreValue(100);
+        setAnimation(
+                AssetManager.getInstance().getAnimation("fairy_idle")
+        );
+    }
+
+    @Override
+    public void update(float delta) {
+        super.update(delta);
     }
 
     @Override
     public void render(ShapeRenderer shapeRenderer) {
+        if (getSprite() == null && getAnimation() == null) {
+            shapeRenderer.setColor(1, 0, 0, 1);
+            shapeRenderer.rect(x, y, width, height);
+        }
+    }
 
-        shapeRenderer.setColor(1, 0, 0, 1);
-
-        shapeRenderer.rect(
-                x,
-                y,
-                width,
-                height
-        );
+    public void render(SpriteBatch batch) {
+        super.render(batch);
     }
 }

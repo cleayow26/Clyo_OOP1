@@ -1,6 +1,10 @@
+
 package com.clyo.frontend;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.graphics.g2d.Animation;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 public abstract class GameObject implements Collidable {
 
@@ -8,6 +12,10 @@ public abstract class GameObject implements Collidable {
     protected float y;
     protected float width;
     protected float height;
+
+    protected TextureRegion sprite;
+    protected Animation<TextureRegion> animation;
+    protected float stateTime = 0f;
 
     private boolean destroyed;
 
@@ -22,6 +30,44 @@ public abstract class GameObject implements Collidable {
     public abstract void update(float delta);
 
     public abstract void render(ShapeRenderer shapeRenderer);
+
+    public void render(SpriteBatch batch) {
+        if (batch == null || destroyed) {
+            return;
+        }
+
+        if (animation != null) {
+            TextureRegion currentFrame =
+                    animation.getKeyFrame(stateTime, true);
+
+            if (currentFrame != null) {
+                batch.draw(currentFrame, x, y, width, height);
+            }
+        } else if (sprite != null) {
+            batch.draw(sprite, x, y, width, height);
+        }
+    }
+
+    public void updateAnimationTime(float delta) {
+        stateTime += delta;
+    }
+
+    public TextureRegion getSprite() {
+        return sprite;
+    }
+
+    public void setSprite(TextureRegion sprite) {
+        this.sprite = sprite;
+    }
+
+    public Animation<TextureRegion> getAnimation() {
+        return animation;
+    }
+
+    public void setAnimation(Animation<TextureRegion> animation) {
+        this.animation = animation;
+        this.stateTime = 0f;
+    }
 
     public float getX() {
         return x;

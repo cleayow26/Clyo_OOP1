@@ -1,3 +1,4 @@
+
 package com.clyo.frontend.objects.enemies;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -13,10 +14,7 @@ public class Enemy extends GameObject {
     protected int maxHp;
     protected long scoreValue;
 
-    public Enemy(
-            String name,
-            int hp) {
-
+    public Enemy(String name, int hp) {
         super(450, 400, 50, 50);
 
         this.name = name;
@@ -31,8 +29,8 @@ public class Enemy extends GameObject {
             float width,
             float height,
             String name,
-            int hp) {
-
+            int hp
+    ) {
         super(x, y, width, height);
 
         this.name = name;
@@ -62,7 +60,6 @@ public class Enemy extends GameObject {
     }
 
     public void takeDamage(int damage) {
-
         hp -= damage;
 
         if (hp < 0) {
@@ -70,58 +67,37 @@ public class Enemy extends GameObject {
         }
 
         System.out.println(
-                name
-                + " took "
-                + damage
-                + " damage! HP: "
-                + hp
-                + "/"
-                + maxHp
+                name + " took " + damage
+                + " damage! HP: " + hp + "/" + maxHp
         );
 
         if (hp <= 0) {
-
-            System.out.println(
-                    name
-                    + " was defeated!"
-            );
-
+            System.out.println(name + " was defeated!");
             destroy();
         }
     }
 
     public void attack(Player player, int damage) {
-
-        player.setHp(
-                player.getHp() - damage
-        );
+        player.setHp(player.getHp() - damage);
 
         System.out.println(
-                name
-                + " attacked "
-                + player.getName()
-                + " for "
-                + damage
-                + " damage!"
+                name + " attacked " + player.getName()
+                + " for " + damage + " damage!"
         );
     }
 
     @Override
     public void update(float delta) {
+        updateAnimationTime(delta);
         // Enemy stays in place.
     }
 
     @Override
     public void render(ShapeRenderer shapeRenderer) {
-
-        shapeRenderer.setColor(1, 0, 0, 1);
-
-        shapeRenderer.rect(
-                x,
-                y,
-                width,
-                height
-        );
+        if (getSprite() == null && getAnimation() == null) {
+            shapeRenderer.setColor(1, 0, 0, 1);
+            shapeRenderer.rect(x, y, width, height);
+        }
     }
 
     @Override

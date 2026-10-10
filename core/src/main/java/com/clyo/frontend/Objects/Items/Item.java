@@ -1,3 +1,4 @@
+
 package com.clyo.frontend.objects.items;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -26,15 +27,10 @@ public class Item extends GameObject {
         this.speed = speed;
         this.itemType = itemType;
         this.scoreValue = scoreValue;
-
         this.type = convertToItemType(itemType);
     }
 
-    public Item(
-            float x,
-            float y,
-            ItemType type) {
-
+    public Item(float x, float y, ItemType type) {
         super(x, y, 30, 30);
 
         this.type = type;
@@ -44,7 +40,6 @@ public class Item extends GameObject {
     }
 
     private ItemType convertToItemType(String itemType) {
-
         if (itemType == null) {
             return ItemType.POINT;
         }
@@ -87,7 +82,6 @@ public class Item extends GameObject {
     }
 
     public void setType(ItemType type) {
-
         this.type = type;
         this.itemType = type.name();
         this.scoreValue = type.getScoreValue();
@@ -95,30 +89,22 @@ public class Item extends GameObject {
 
     @Override
     public void update(float delta) {
-
+        updateAnimationTime(delta);
         y -= speed * delta;
     }
 
     @Override
     public void render(ShapeRenderer shapeRenderer) {
-
-        shapeRenderer.setColor(0, 1, 0, 1);
-
-        shapeRenderer.rect(
-                x,
-                y,
-                width,
-                height
-        );
+        if (getSprite() == null && getAnimation() == null) {
+            shapeRenderer.setColor(0, 1, 0, 1);
+            shapeRenderer.rect(x, y, width, height);
+        }
     }
 
     @Override
     public void onCollision(Collidable other) {
-
         if (other instanceof Player) {
-
             Player player = (Player) other;
-
             player.collectItem(this);
         }
     }

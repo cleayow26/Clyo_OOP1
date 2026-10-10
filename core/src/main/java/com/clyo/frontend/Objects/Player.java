@@ -1,5 +1,5 @@
-package com.clyo.frontend.objects;
 
+package com.clyo.frontend.objects;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
@@ -8,10 +8,10 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.clyo.frontend.Collidable;
 import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.bullets.Bullet;
-import com.clyo.frontend.objects.BulletType;
 import com.clyo.frontend.objects.enemies.Boss;
 import com.clyo.frontend.objects.enemies.Enemy;
 import com.clyo.frontend.objects.items.Item;
+import com.clyo.frontend.systems.AssetManager;
 
 public class Player extends GameObject {
 
@@ -23,12 +23,7 @@ public class Player extends GameObject {
     private long score;
 
     // Constructor used by Test.java
-    public Player(
-            String name,
-            int hp,
-            int power,
-            int spellCards) {
-
+    public Player(String name, int hp, int power, int spellCards) {
         super(320, 50, 50, 50);
 
         this.name = name;
@@ -37,6 +32,10 @@ public class Player extends GameObject {
         this.power = power;
         this.spellCards = spellCards;
         this.score = 0;
+
+        setAnimation(
+            AssetManager.getInstance().getAnimation("player_idle")
+        );
     }
 
     // Constructor used by LibGDX Main
@@ -56,6 +55,10 @@ public class Player extends GameObject {
         this.power = power;
         this.spellCards = 3;
         this.score = 0;
+
+        setAnimation(
+            AssetManager.getInstance().getAnimation("player_idle")
+        );
     }
 
     public String getName() {
@@ -106,15 +109,9 @@ public class Player extends GameObject {
         score += amount;
     }
 
-    // =========================
-    // PRE-CS SHOOT
-    // =========================
-
+    // Shooting
     public void shoot(Enemy enemy) {
-
-        int damage = power;
-
-        enemy.takeDamage(damage);
+        enemy.takeDamage(power);
 
         if (enemy.isDestroyed()) {
             score += enemy.getScoreValue();
@@ -122,36 +119,25 @@ public class Player extends GameObject {
     }
 
     public void shoot(Boss boss) {
-
-        int damage = power;
-
-        boss.takeDamage(damage);
+        boss.takeDamage(power);
 
         if (boss.isDestroyed()) {
             score += boss.getScoreValue();
         }
     }
 
-    // =========================
-    // MODULE 4 BULLET
-    // =========================
-
+    // Create bullet
     public Bullet shootBullet() {
-
         return new Bullet(
-                x + width / 2 - 4,
-                y + height,
-                BulletType.AMULET,
-                25
+            x + width / 2 - 4,
+            y + height,
+            BulletType.AMULET,
+            25
         );
     }
 
-    // =========================
-    // ITEM
-    // =========================
-
+    // Collect item
     public void collectItem(Item item) {
-
         if (item.isDestroyed()) {
             return;
         }
@@ -160,27 +146,20 @@ public class Player extends GameObject {
         power += item.getItemTypeEnum().getPowerBonus();
 
         if (item.getItemTypeEnum().name().equals("LIFE")) {
-            hp += 20;
-
-            if (hp > maxHp) {
-                hp = maxHp;
-            }
+            hp = Math.min(hp + 20, maxHp);
         }
 
         if (item.getItemTypeEnum().name().equals("BOMB")) {
             spellCards++;
         }
 
-        // REQUIRED BY MODULE 4
         item.destroy();
     }
 
-    // =========================
-    // UPDATE
-    // =========================
-
+    // Update movement and animation
     @Override
     public void update(float delta) {
+        updateAnimationTime(delta);
 
         float movementSpeed = 250f;
 
@@ -201,35 +180,20 @@ public class Player extends GameObject {
         }
     }
 
-    // =========================
-    // RENDER
-    // =========================
-
+    // Fallback rendering using ShapeRenderer
     @Override
     public void render(ShapeRenderer shapeRenderer) {
-
-        shapeRenderer.setColor(0, 0, 1, 1);
-
-        shapeRenderer.rect(
-                x,
-                y,
-                width,
-                height
-        );
+        if (getSprite() == null && getAnimation() == null) {
+            shapeRenderer.setColor(0, 0, 1, 1);
+            shapeRenderer.rect(x, y, width, height);
+        }
     }
 
-    // =========================
-    // COLLISION
-    // =========================
-
+    // Collision
     @Override
     public void onCollision(Collidable other) {
-
         if (other instanceof Item) {
-
-            Item item = (Item) other;
-
-            collectItem(item);
+            collectItem((Item) other);
         }
     }
 }
