@@ -9,7 +9,9 @@ public class Fairy extends Enemy {
 
     public Fairy(String name, int hp) {
         super(name, hp);
+
         setScoreValue(100);
+
         setAnimation(
                 AssetManager.getInstance().getAnimation("fairy_idle")
         );
@@ -26,6 +28,7 @@ public class Fairy extends Enemy {
         );
 
         setScoreValue(100);
+
         setAnimation(
                 AssetManager.getInstance().getAnimation("fairy_idle")
         );

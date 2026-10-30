@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.clyo.frontend.Collidable;
 import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.Player;
+import com.clyo.frontend.systems.AudioSystem;
 
 public class Item extends GameObject {
 
@@ -12,6 +13,7 @@ public class Item extends GameObject {
     private float speed;
     private String itemType;
     private long scoreValue;
+    private boolean collected = false;
 
     public Item(
             float x,
@@ -20,8 +22,8 @@ public class Item extends GameObject {
             float height,
             float speed,
             String itemType,
-            long scoreValue) {
-
+            long scoreValue
+    ) {
         super(x, y, width, height);
 
         this.speed = speed;
@@ -103,9 +105,26 @@ public class Item extends GameObject {
 
     @Override
     public void onCollision(Collidable other) {
-        if (other instanceof Player) {
+        if (other instanceof Player
+                && !isDestroyed()
+                && !collected) {
+
+            collected = true;
+
             Player player = (Player) other;
+
+            System.out.println("ITEM COLLISION DETECTED!");
+
+            // Collect first, before destroying the item.
             player.collectItem(this);
+
+            // Play pickup sound.
+            AudioSystem.getInstance().playItemCollect();
+
+            // Destroy the item after collection.
+            destroy();
+
+            System.out.println("ITEM PICKUP FINISHED!");
         }
     }
 }

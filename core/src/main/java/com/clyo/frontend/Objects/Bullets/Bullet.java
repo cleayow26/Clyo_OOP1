@@ -1,6 +1,7 @@
 
 package com.clyo.frontend.objects.bullets;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
@@ -12,36 +13,148 @@ import com.clyo.frontend.systems.AssetManager;
 
 public class Bullet extends GameObject {
 
+    private BulletType bulletType;
     private int damage;
-    private BulletType type;
+
+    private float vx;
+    private float vy;
+    private float angle = 90f;
     private float speed;
 
-    // Existing constructor for player bullets.
-    public Bullet(
-            float x,
-            float y,
-            BulletType type,
-            int damage) {
+    private boolean isPlayerBullet;
+    private boolean grazed;
 
-        this(x, y, 400f, type, damage);
+    public Bullet(float x, float y, BulletType bulletType, int damage) {
+        this(x, y, 400f, bulletType, damage);
     }
 
-    // Constructor with configurable speed.
     public Bullet(
             float x,
             float y,
             float speed,
-            BulletType type,
+            BulletType bulletType,
             int damage) {
 
-        super(x, y, 8, 15);
+        super(x, y, 16, 16);
 
-        this.type = type;
+        this.bulletType = bulletType;
         this.damage = damage;
         this.speed = speed;
 
+        this.vx = 0f;
+        this.vy = speed;
+        this.angle = speed < 0f ? 270f : 90f;
+
+        this.isPlayerBullet = true;
+        this.grazed = false;
+
         this.sprite = AssetManager.getInstance()
                 .getTextureRegion("bullet_danmaku");
+    }
+
+    public void init(
+            float x,
+            float y,
+            float vx,
+            float vy,
+            BulletType bulletType,
+            int damage,
+            boolean isPlayerBullet) {
+
+        this.x = x;
+        this.y = y;
+
+        this.vx = vx;
+        this.vy = vy;
+
+        this.speed = (float) Math.hypot(vx, vy);
+
+        this.angle = (float) Math.toDegrees(
+                Math.atan2(vy, vx)
+        );
+
+        this.bulletType = bulletType;
+        this.damage = damage;
+        this.isPlayerBullet = isPlayerBullet;
+
+        this.grazed = false;
+
+        activate();
+    }
+
+    @Override
+    public void update(float delta) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        updateAnimationTime(delta);
+
+        x += vx * delta;
+        y += vy * delta;
+    }
+
+    @Override
+    public void render(SpriteBatch batch) {
+        if (batch == null || isDestroyed()) {
+            return;
+        }
+
+        if (sprite != null) {
+            batch.draw(
+                    sprite,
+                    x,
+                    y,
+                    width / 2f,
+                    height / 2f,
+                    width,
+                    height,
+                    1f,
+                    1f,
+                    angle - 90f
+            );
+        } else {
+            super.render(batch);
+        }
+    }
+
+    @Override
+    public void render(ShapeRenderer shapeRenderer) {
+        if (shapeRenderer == null || isDestroyed()) {
+            return;
+        }
+
+        if (sprite == null && animation == null) {
+            shapeRenderer.setColor(Color.YELLOW);
+            shapeRenderer.rect(x, y, width, height);
+        }
+    }
+
+    @Override
+    public void onCollision(Collidable other) {
+        if (isDestroyed()) {
+            return;
+        }
+
+        if (other instanceof Enemy && isPlayerBullet) {
+            Enemy enemy = (Enemy) other;
+
+            System.out.println(
+                    "Bullet hit " + enemy.getName()
+                    + " for " + damage + " DMG!"
+            );
+
+            enemy.takeDamage(damage);
+            destroy();
+        }
+    }
+
+    public BulletType getType() {
+        return bulletType;
+    }
+
+    public void setType(BulletType bulletType) {
+        this.bulletType = bulletType;
     }
 
     public int getDamage() {
@@ -52,14 +165,6 @@ public class Bullet extends GameObject {
         this.damage = damage;
     }
 
-    public BulletType getType() {
-        return type;
-    }
-
-    public void setType(BulletType type) {
-        this.type = type;
-    }
-
     public float getSpeed() {
         return speed;
     }
@@ -68,40 +173,47 @@ public class Bullet extends GameObject {
         this.speed = speed;
     }
 
-    @Override
-    public void update(float delta) {
-        updateAnimationTime(delta);
-        y += speed * delta;
+    public float getVx() {
+        return vx;
     }
 
-    @Override
-    public void render(ShapeRenderer shapeRenderer) {
-        if (getSprite() == null && getAnimation() == null) {
-            shapeRenderer.setColor(1, 1, 0, 1);
-            shapeRenderer.rect(x, y, width, height);
-        }
+    public void setVx(float vx) {
+        this.vx = vx;
     }
 
-    @Override
-    public void render(SpriteBatch batch) {
-        super.render(batch);
+    public float getVy() {
+        return vy;
     }
 
-    @Override
-    public void onCollision(Collidable other) {
-        if (other instanceof Enemy) {
-            Enemy enemy = (Enemy) other;
+    public void setVy(float vy) {
+        this.vy = vy;
+    }
 
-            System.out.println(
-                    "Bullet hit "
-                    + enemy.getName()
-                    + " for "
-                    + damage
-                    + " DMG!"
-            );
+    public float getAngle() {
+        return angle;
+    }
 
-            enemy.takeDamage(damage);
-            destroy();
-        }
+    public void setAngle(float angle) {
+        this.angle = angle;
+    }
+
+    public boolean isPlayerBullet() {
+        return isPlayerBullet;
+    }
+
+    public void setPlayerBullet(boolean isPlayerBullet) {
+        this.isPlayerBullet = isPlayerBullet;
+    }
+
+    public boolean hasBeenGrazed() {
+        return grazed;
+    }
+
+    public boolean isGrazed() {
+        return grazed;
+    }
+
+    public void setGrazed(boolean grazed) {
+        this.grazed = grazed;
     }
 }

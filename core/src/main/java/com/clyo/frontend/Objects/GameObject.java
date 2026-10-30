@@ -101,6 +101,13 @@ public abstract class GameObject implements Collidable {
         destroyed = true;
     }
 
+    // Mengaktifkan kembali object yang sudah dihancurkan.
+    // Dibutuhkan agar object bisa digunakan ulang oleh Object Pool.
+    public void activate() {
+        destroyed = false;
+        stateTime = 0f;
+    }
+
     public boolean isOffScreen(float screenWidth, float screenHeight) {
         return x + width < 0 ||
                x > screenWidth ||
@@ -113,7 +120,6 @@ public abstract class GameObject implements Collidable {
     }
 
     public static class Hitbox {
-
         private float x;
         private float y;
         private float width;

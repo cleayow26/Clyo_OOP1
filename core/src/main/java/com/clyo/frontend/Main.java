@@ -9,12 +9,15 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.ScreenUtils;
 
 import com.clyo.frontend.objects.Player;
-import com.clyo.frontend.objects.bullets.Bullet;
 import com.clyo.frontend.objects.enemies.Boss;
 import com.clyo.frontend.objects.enemies.Fairy;
 import com.clyo.frontend.objects.items.Item;
 import com.clyo.frontend.objects.items.ItemType;
+
 import com.clyo.frontend.systems.AssetManager;
+import com.clyo.frontend.systems.AudioSystem;
+import com.clyo.frontend.systems.BulletManager;
+import com.clyo.frontend.systems.CollisionReferee;
 import com.clyo.frontend.systems.EntityFactory;
 
 import java.util.ArrayList;
@@ -27,45 +30,54 @@ public class Main extends ApplicationAdapter {
     private SpriteBatch batch;
 
     private Player player;
+    private Boss boss;
+
     private List<Fairy> fairy;
     private List<GameObject> entities;
 
+    private BulletManager bulletManager;
+    private CollisionReferee collisionReferee;
+
+    private float enemyShootTimer = 0f;
+
     private AssetManager assetManager;
+    private AudioSystem audioSystem;
 
     @Override
     public void create() {
+
         shapeRenderer = new ShapeRenderer();
         batch = new SpriteBatch();
 
         fairy = new ArrayList<>();
         entities = new ArrayList<>();
 
-        // Initialize assets before creating entities
+        bulletManager = new BulletManager();
+        collisionReferee = new CollisionReferee();
+
         assetManager = AssetManager.getInstance();
         assetManager.init();
 
-        // Create Player
+        audioSystem = AudioSystem.getInstance();
+        audioSystem.init();
+
         player = EntityFactory.createPlayer(
                 280, 40, "Reimu Hakurei", 100, 15, 3
         );
 
-        // Create Red Fairy
         Fairy redFairy = EntityFactory.createFairy(
                 150, 380, "Red Fairy", 20
         );
 
-        // Create Blue Fairy
         Fairy blueFairy = EntityFactory.createFairy(
                 250, 380, "Blue Fairy", 20,
                 "fairy_idle_blue"
         );
 
-        // Create Boss
-        Boss boss = EntityFactory.createBoss(
+        boss = EntityFactory.createBoss(
                 380, 400, "Rumia", 150
         );
 
-        // Create Items
         Item powerItem = EntityFactory.createItem(
                 200, 450, ItemType.POWER
         );
@@ -74,19 +86,23 @@ public class Main extends ApplicationAdapter {
                 320, 480, ItemType.POINT
         );
 
-        // Add Fairies to their list
         fairy.add(redFairy);
         fairy.add(blueFairy);
 
-        // Add all entities to the main list
         entities.add(player);
         entities.addAll(fairy);
         entities.add(boss);
         entities.add(powerItem);
         entities.add(pointItem);
 
-        System.out.println("Total entities: " + entities.size());
+        System.out.println(
+                "Total entities: " + entities.size()
+        );
     }
+
+    // =====================================
+    // UPDATE AND CLEAN
+    // =====================================
 
     public <T extends GameObject> void updateAndClean(
             List<T> list,
@@ -97,77 +113,117 @@ public class Main extends ApplicationAdapter {
         Iterator<T> iterator = list.iterator();
 
         while (iterator.hasNext()) {
+
             T entity = iterator.next();
 
             entity.update(delta);
 
             if (entity.isDestroyed()
                     || entity.isOffScreen(
-                            screenWidth, screenHeight)) {
-
-                System.out.println(
-                        "Removed via Generic Iterator: "
-                        + entity.getClass().getSimpleName()
-                );
+                            screenWidth,
+                            screenHeight)) {
 
                 iterator.remove();
             }
         }
     }
 
+    // =====================================
+    // BOSS SHOOTING SCHEDULER
+    // =====================================
+
+    private void updateEnemyScheduler(float delta) {
+
+        enemyShootTimer += delta;
+
+        if (enemyShootTimer >= 1.5f) {
+
+            if (boss != null && !boss.isDestroyed()) {
+                boss.shootBullet(bulletManager);
+            }
+
+            enemyShootTimer = 0f;
+        }
+    }
+
+    // =====================================
+    // MAIN GAME LOOP
+    // =====================================
+
     @Override
     public void render() {
+
         float delta = Gdx.graphics.getDeltaTime();
 
-        // Shoot a bullet by pressing Z
+        float screenWidth = Gdx.graphics.getWidth();
+        float screenHeight = Gdx.graphics.getHeight();
+
+        // PLAYER SHOOTING
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
-            Bullet bullet = player.shootBullet();
-            entities.add(bullet);
+
+            player.shootBullet(bulletManager);
+
+            audioSystem.playShoot();
         }
+
+        // BOSS SHOOTING
+
+        updateEnemyScheduler(delta);
+
+        // UPDATE NORMAL ENTITIES
 
         updateAndClean(
                 entities,
                 delta,
-                Gdx.graphics.getWidth(),
-                Gdx.graphics.getHeight()
+                screenWidth,
+                screenHeight
         );
 
-        // Collision detection
-        for (int i = 0; i < entities.size(); i++) {
-            for (int j = i + 1; j < entities.size(); j++) {
+        // UPDATE BULLETS
+        bulletManager.update(
+                delta,
+                screenWidth,
+                screenHeight
+        );
 
-                GameObject a = entities.get(i);
-                GameObject b = entities.get(j);
+        // COLLISION REFEREE
 
-                if (!a.isDestroyed()
-                        && !b.isDestroyed()
-                        && a.getCoreHitbox().overlaps(
-                                b.getCoreHitbox())) {
+        collisionReferee.resolveCollisions(
+                player,
+                entities,
+                bulletManager
+        );
 
-                    a.onCollision(b);
-                    b.onCollision(a);
-                }
-            }
-        }
+        // CLEAR SCREEN
 
-        // Clear the background
-        ScreenUtils.clear(0.1f, 0.1f, 0.15f, 1f);
+        ScreenUtils.clear(
+                0.1f, 0.1f, 0.15f, 1f
+        );
 
-        // Render sprites and animations
+        // RENDER SPRITES
+
         batch.begin();
 
         for (GameObject entity : entities) {
+
             if (!entity.isDestroyed()) {
                 entity.render(batch);
             }
         }
 
+        bulletManager.render(batch);
+
         batch.end();
 
-        // Render fallback shapes
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        // RENDER SHAPES
+
+        shapeRenderer.begin(
+                ShapeRenderer.ShapeType.Filled
+        );
 
         for (GameObject entity : entities) {
+
             if (!entity.isDestroyed()) {
                 entity.render(shapeRenderer);
             }
@@ -176,18 +232,31 @@ public class Main extends ApplicationAdapter {
         shapeRenderer.end();
     }
 
+    // =====================================
+    // DISPOSE
+    // =====================================
+
     @Override
     public void dispose() {
+
+        if (audioSystem != null) {
+            audioSystem.dispose();
+            audioSystem = null;
+        }
+
         if (batch != null) {
             batch.dispose();
+            batch = null;
         }
 
         if (shapeRenderer != null) {
             shapeRenderer.dispose();
+            shapeRenderer = null;
         }
 
         if (assetManager != null) {
             assetManager.dispose();
+            assetManager = null;
         }
     }
 }

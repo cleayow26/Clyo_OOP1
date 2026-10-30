@@ -11,7 +11,10 @@ import com.clyo.frontend.objects.bullets.Bullet;
 import com.clyo.frontend.objects.enemies.Boss;
 import com.clyo.frontend.objects.enemies.Enemy;
 import com.clyo.frontend.objects.items.Item;
+import com.clyo.frontend.objects.patterns.ShootingPattern;
 import com.clyo.frontend.systems.AssetManager;
+import com.clyo.frontend.systems.AudioSystem;
+import com.clyo.frontend.systems.BulletManager;
 
 public class Player extends GameObject {
 
@@ -22,7 +25,8 @@ public class Player extends GameObject {
     private int spellCards;
     private long score;
 
-    // Constructor used by Test.java
+    private ShootingPattern shootingPattern;
+
     public Player(String name, int hp, int power, int spellCards) {
         super(320, 50, 50, 50);
 
@@ -34,11 +38,10 @@ public class Player extends GameObject {
         this.score = 0;
 
         setAnimation(
-            AssetManager.getInstance().getAnimation("player_idle")
+                AssetManager.getInstance().getAnimation("player_idle")
         );
     }
 
-    // Constructor used by LibGDX Main
     public Player(
             float x,
             float y,
@@ -57,7 +60,7 @@ public class Player extends GameObject {
         this.score = 0;
 
         setAnimation(
-            AssetManager.getInstance().getAnimation("player_idle")
+                AssetManager.getInstance().getAnimation("player_idle")
         );
     }
 
@@ -109,7 +112,6 @@ public class Player extends GameObject {
         score += amount;
     }
 
-    // Shooting
     public void shoot(Enemy enemy) {
         enemy.takeDamage(power);
 
@@ -126,19 +128,62 @@ public class Player extends GameObject {
         }
     }
 
-    // Create bullet
     public Bullet shootBullet() {
         return new Bullet(
-            x + width / 2 - 4,
-            y + height,
-            BulletType.AMULET,
-            25
+                x + width / 2f - 8f,
+                y + height,
+                BulletType.AMULET,
+                25
         );
     }
 
-    // Collect item
+    public void shootBullet(BulletManager bulletManager) {
+        if (bulletManager == null) {
+            return;
+        }
+
+        if (shootingPattern != null) {
+            shootingPattern.execute(
+                    x + width / 2f - 8f,
+                    y + height,
+                    bulletManager,
+                    true
+            );
+        } else {
+            bulletManager.spawnPlayerBullet(
+                    x + width / 2f - 8f,
+                    y + height,
+                    0f,
+                    400f,
+                    25
+            );
+        }
+    }
+
+    public ShootingPattern getShootingPattern() {
+        return shootingPattern;
+    }
+
+    public void setShootingPattern(ShootingPattern shootingPattern) {
+        this.shootingPattern = shootingPattern;
+    }
+
+    @Override
+    public Hitbox getCoreHitbox() {
+        return new Hitbox(
+                x + width / 2f - 4f,
+                y + height / 2f - 4f,
+                8f,
+                8f
+        );
+    }
+
+    public Hitbox getGrazeHitbox() {
+        return new Hitbox(x, y, width, height);
+    }
+
     public void collectItem(Item item) {
-        if (item.isDestroyed()) {
+        if (item == null || item.isDestroyed()) {
             return;
         }
 
@@ -154,9 +199,18 @@ public class Player extends GameObject {
         }
 
         item.destroy();
+
+        System.out.println("ITEM COLLECTED! Score: " + score);
+
+        try {
+            AudioSystem.getInstance().playItemCollect();
+            System.out.println("Pickup sound triggered!");
+        } catch (Exception e) {
+            System.out.println("Pickup sound error:");
+            e.printStackTrace();
+        }
     }
 
-    // Update movement and animation
     @Override
     public void update(float delta) {
         updateAnimationTime(delta);
@@ -180,7 +234,6 @@ public class Player extends GameObject {
         }
     }
 
-    // Fallback rendering using ShapeRenderer
     @Override
     public void render(ShapeRenderer shapeRenderer) {
         if (getSprite() == null && getAnimation() == null) {
@@ -189,11 +242,16 @@ public class Player extends GameObject {
         }
     }
 
-    // Collision
     @Override
     public void onCollision(Collidable other) {
         if (other instanceof Item) {
-            collectItem((Item) other);
+            Item item = (Item) other;
+
+            System.out.println("PLAYER COLLISION WITH ITEM!");
+
+            if (!item.isDestroyed()) {
+                collectItem(item);
+            }
         }
     }
 }

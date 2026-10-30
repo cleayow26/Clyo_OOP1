@@ -3,6 +3,7 @@ package com.clyo.frontend.systems;
 
 import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
+
 import com.clyo.frontend.objects.Player;
 import com.clyo.frontend.objects.BulletType;
 import com.clyo.frontend.objects.bullets.Bullet;
@@ -70,6 +71,8 @@ public class EntityFactory {
         Bullet bullet = new Bullet(
                 x, y, 400f, BulletType.DANMAKU, damage
         );
+
+        bullet.setPlayerBullet(false);
 
         TextureRegion region =
                 AssetManager.getInstance()
@@ -141,6 +144,8 @@ public class EntityFactory {
         Bullet bullet = new Bullet(
                 x, y, BulletType.AMULET, damage
         );
+
+        bullet.setPlayerBullet(true);
 
         TextureRegion region =
                 AssetManager.getInstance().getTextureRegion(spriteKey);

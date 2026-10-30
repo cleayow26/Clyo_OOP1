@@ -2,10 +2,10 @@
 package com.clyo.frontend.objects.enemies;
 
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-
 import com.clyo.frontend.Collidable;
 import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.Player;
+import com.clyo.frontend.systems.AudioSystem;
 
 public class Enemy extends GameObject {
 
@@ -60,19 +60,22 @@ public class Enemy extends GameObject {
     }
 
     public void takeDamage(int damage) {
-        hp -= damage;
-
-        if (hp < 0) {
-            hp = 0;
+        if (isDestroyed() || damage <= 0) {
+            return;
         }
+
+        hp = Math.max(0, hp - damage);
 
         System.out.println(
                 name + " took " + damage
-                + " damage! HP: " + hp + "/" + maxHp
+                        + " damage! HP: " + hp + "/" + maxHp
         );
 
-        if (hp <= 0) {
+        if (hp == 0) {
             System.out.println(name + " was defeated!");
+
+            AudioSystem.getInstance().playEnemyDeath();
+
             destroy();
         }
     }
@@ -82,14 +85,13 @@ public class Enemy extends GameObject {
 
         System.out.println(
                 name + " attacked " + player.getName()
-                + " for " + damage + " damage!"
+                        + " for " + damage + " damage!"
         );
     }
 
     @Override
     public void update(float delta) {
         updateAnimationTime(delta);
-        // Enemy stays in place.
     }
 
     @Override
