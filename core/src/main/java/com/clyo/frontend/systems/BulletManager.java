@@ -3,7 +3,10 @@ package com.clyo.frontend.systems;
 
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
+import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.BulletType;
+import com.clyo.frontend.objects.items.Item;
+import com.clyo.frontend.objects.items.ItemType;
 import com.clyo.frontend.objects.bullets.Bullet;
 
 import java.util.ArrayList;
@@ -117,8 +120,6 @@ public class BulletManager {
             float screenWidth,
             float screenHeight) {
 
-        // PLAYER BULLETS
-
         Iterator<Bullet> playerIterator =
                 activePlayerBullets.iterator();
 
@@ -141,8 +142,6 @@ public class BulletManager {
             }
         }
 
-        // ENEMY BULLETS
-
         Iterator<Bullet> enemyIterator =
                 activeEnemyBullets.iterator();
 
@@ -163,6 +162,63 @@ public class BulletManager {
 
                 enemyBulletPool.offer(bullet);
             }
+        }
+    }
+
+    // ==========================================
+    // PROBLEM 3: CLEAR ENEMY BULLETS
+    // ==========================================
+
+    public void clearEnemyBullets(List<GameObject> entities) {
+
+        Iterator<Bullet> iterator =
+                activeEnemyBullets.iterator();
+
+        while (iterator.hasNext()) {
+
+            Bullet bullet = iterator.next();
+
+            if (entities != null) {
+
+                Item pointItem = EntityFactory.createItem(
+                        bullet.getX(),
+                        bullet.getY(),
+                        ItemType.POINT
+                );
+
+                entities.add(pointItem);
+            }
+
+            bullet.destroy();
+
+            iterator.remove();
+
+            enemyBulletPool.offer(bullet);
+        }
+    }
+
+    public void clearEnemyBullets() {
+        clearEnemyBullets(null);
+    }
+
+    // ==========================================
+    // PROBLEM 3: CLEAR PLAYER BULLETS
+    // ==========================================
+
+    public void clearPlayerBullets() {
+
+        Iterator<Bullet> pIter =
+                activePlayerBullets.iterator();
+
+        while (pIter.hasNext()) {
+
+            Bullet bullet = pIter.next();
+
+            bullet.destroy();
+
+            pIter.remove();
+
+            playerBulletPool.offer(bullet);
         }
     }
 

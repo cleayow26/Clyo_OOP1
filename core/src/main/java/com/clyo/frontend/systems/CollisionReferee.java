@@ -1,17 +1,15 @@
 
 package com.clyo.frontend.systems;
 
-import com.clyo.frontend.GameObject;
-import com.clyo.frontend.Collidable;
+import java.util.ArrayList;
+import java.util.List;
 
+import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.Player;
 import com.clyo.frontend.objects.bullets.Bullet;
 import com.clyo.frontend.objects.enemies.Enemy;
 import com.clyo.frontend.objects.items.Item;
 import com.clyo.frontend.objects.items.ItemType;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class CollisionReferee {
 
@@ -20,21 +18,16 @@ public class CollisionReferee {
             List<GameObject> entities,
             BulletManager bulletManager) {
 
-        if (player == null
-                || entities == null
-                || bulletManager == null) {
-            return;
-        }
-
         List<GameObject> newDrops = new ArrayList<>();
 
-        // =====================================
-        // QUESTION 3:
-        // PLAYER BULLETS VS ENEMIES
-        // =====================================
+        // ==========================================
+        // 1. PLAYER BULLETS VS ENEMIES
+        // ==========================================
 
-        for (Bullet bullet :
-                bulletManager.getActivePlayerBullets()) {
+        List<Bullet> activePlayerBullets =
+                bulletManager.getActivePlayerBullets();
+
+        for (Bullet bullet : activePlayerBullets) {
 
             if (bullet.isDestroyed()) {
                 continue;
@@ -42,10 +35,13 @@ public class CollisionReferee {
 
             for (GameObject entity : entities) {
 
-                if (entity instanceof Enemy
-                        && !entity.isDestroyed()) {
+                if (entity instanceof Enemy) {
 
                     Enemy enemy = (Enemy) entity;
+
+                    if (enemy.isDestroyed()) {
+                        continue;
+                    }
 
                     if (bullet.getCoreHitbox().overlaps(
                             enemy.getCoreHitbox())) {
@@ -58,14 +54,13 @@ public class CollisionReferee {
                                     enemy.getScoreValue()
                             );
 
-                            Item powerDrop =
+                            newDrops.add(
                                     EntityFactory.createItem(
                                             enemy.getX(),
                                             enemy.getY(),
                                             ItemType.POWER
-                                    );
-
-                            newDrops.add(powerDrop);
+                                    )
+                            );
                         }
 
                         bullet.destroy();
@@ -75,90 +70,106 @@ public class CollisionReferee {
             }
         }
 
-        // =====================================
-        // QUESTION 4:
-        // ENEMY BULLETS VS PLAYER
-        // CORE HIT AND GRAZE
-        // =====================================
+        // Add drops after checking entities
+        entities.addAll(newDrops);
 
-        for (Bullet bullet :
-                bulletManager.getActiveEnemyBullets()) {
+        // ==========================================
+        // 2. ENEMY BULLETS VS PLAYER
+        // ==========================================
 
-            if (bullet.isDestroyed()
-                    || player.isDestroyed()) {
+        List<Bullet> activeEnemyBullets =
+                bulletManager.getActiveEnemyBullets();
+
+        for (Bullet bullet : activeEnemyBullets) {
+
+            if (bullet.isDestroyed() || player.isDestroyed()) {
                 continue;
             }
 
-            // PRIORITY 1: CORE HIT
-
+            // Direct hit
             if (bullet.getCoreHitbox().overlaps(
                     player.getCoreHitbox())) {
 
-                player.onCollision(bullet);
+                if (!player.isInvulnerable()) {
 
-                bullet.destroy();
+                    System.out.println(
+                            "[CollisionReferee] Player hit by enemy bullet!"
+                    );
 
-                continue;
+                    player.takeDamage(100);
+
+                    bullet.destroy();
+                    break;
+                }
             }
 
-            // PRIORITY 2: GRAZE HIT
-
-            if (!bullet.hasBeenGrazed()
+            // Graze detection
+            else if (!bullet.isGrazed()
                     && bullet.getCoreHitbox().overlaps(
                             player.getGrazeHitbox())) {
 
                 bullet.setGrazed(true);
 
-                player.addScore(50);
+                player.addGraze();
 
                 System.out.println(
-                        "[CollisionReferee] GRAZE! "
-                        + "+50 pts!"
+                        "[CollisionReferee] Player grazed an enemy bullet!"
                 );
             }
         }
 
-        // =====================================
-        // QUESTION 5:
-        // PLAYER VS ITEMS AND ENEMY BODY
-        // =====================================
+        // ==========================================
+        // 3. PLAYER VS ITEMS
+        // ==========================================
 
         for (GameObject entity : entities) {
-
-            if (entity.isDestroyed()
-                    || player.isDestroyed()) {
-                continue;
-            }
-
-            // CASE A: ITEM COLLECTION
 
             if (entity instanceof Item) {
 
                 Item item = (Item) entity;
 
+                if (item.isDestroyed()) {
+                    continue;
+                }
+
                 if (item.getCoreHitbox().overlaps(
                         player.getCoreHitbox())
                         || item.getCoreHitbox().overlaps(
-                                player.getGrazeHitbox())) {
+                        player.getGrazeHitbox())) {
 
                     player.collectItem(item);
                 }
             }
+        }
 
-            // CASE B: ENEMY BODY CONTACT
+        // ==========================================
+        // 4. PLAYER VS ENEMY BODY
+        // ==========================================
+
+        for (GameObject entity : entities) {
 
             if (entity instanceof Enemy) {
 
                 Enemy enemy = (Enemy) entity;
 
+                if (enemy.isDestroyed() || player.isDestroyed()) {
+                    continue;
+                }
+
                 if (enemy.getCoreHitbox().overlaps(
                         player.getCoreHitbox())) {
 
-                    player.onCollision(enemy);
+                    if (!player.isInvulnerable()) {
+
+                        System.out.println(
+                                "[CollisionReferee] CORE COLLISION! Player collided with "
+                                        + enemy.getName() + "!"
+                        );
+
+                        player.takeDamage(100);
+                    }
                 }
             }
         }
-
-        entities.addAll(newDrops);
     }
 }
