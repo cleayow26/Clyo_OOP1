@@ -1,8 +1,8 @@
+
 package com.clyo.frontend.commands;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-
 import com.clyo.frontend.GameObject;
 
 import java.util.ArrayList;
@@ -10,39 +10,22 @@ import java.util.List;
 
 public class InputHandler {
 
-    // ==========================================
-    // 1. KEY CONFIGURATION
-    // ==========================================
-
+    // KEY CONFIGURATION
     private int keyShoot = Input.Keys.Z;
     private int keyBomb = Input.Keys.X;
     private int keyFocus = Input.Keys.SHIFT_LEFT;
 
-    // ==========================================
-    // 2. PRE-ALLOCATED COMMANDS
-    // ==========================================
+    // PRE-ALLOCATED COMMANDS
+    private final ShootCommand shootCommand = new ShootCommand();
+    private final BombCommand bombCommand = new BombCommand();
 
-    private final ShootCommand shootCommand =
-            new ShootCommand();
+    private final FocusCommand focusOn = new FocusCommand(true);
+    private final FocusCommand focusOff = new FocusCommand(false);
 
-    private final BombCommand bombCommand =
-            new BombCommand();
+    private final MoveCommand moveCommand = new MoveCommand(0, 0);
 
-    private final FocusCommand focusOn =
-            new FocusCommand(true);
-
-    private final FocusCommand focusOff =
-            new FocusCommand(false);
-
-    private final MoveCommand moveCommand =
-            new MoveCommand(0, 0);
-
-    // ==========================================
-    // 3. ACTIVE COMMANDS
-    // ==========================================
-
-    private final List<Command> activeCommands =
-            new ArrayList<>();
+    // ACTIVE COMMANDS
+    private final List<Command> activeCommands = new ArrayList<>();
 
     public InputHandler() {
     }
@@ -55,10 +38,7 @@ public class InputHandler {
         bombCommand.setEntities(entities);
     }
 
-    // ==========================================
-    // 4. KEY GETTERS AND SETTERS
-    // ==========================================
-
+    // KEY GETTERS AND SETTERS
     public int getKeyShoot() {
         return keyShoot;
     }
@@ -83,61 +63,51 @@ public class InputHandler {
         this.keyFocus = keyFocus;
     }
 
-    // ==========================================
-    // PROBLEM 1 & 2: HANDLE INPUT
-    // ==========================================
-
+    // HANDLE INPUT
     public List<Command> handleInput(float delta) {
 
-        // Clear previous commands
         activeCommands.clear();
 
-        // Safety check
         if (Gdx.input == null) {
             return activeCommands;
         }
 
-        // --------------------------------------
-        // 1. FOCUS MODE
-        // --------------------------------------
-
+        // FOCUS MODE
         boolean isFocusHeld =
                 Gdx.input.isKeyPressed(keyFocus)
                 || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
 
-        activeCommands.add(
-                isFocusHeld ? focusOn : focusOff
-        );
+        activeCommands.add(isFocusHeld ? focusOn : focusOff);
 
-        // --------------------------------------
-        // 2. 8-DIRECTIONAL MOVEMENT
-        // --------------------------------------
-
+        // 8-DIRECTIONAL MOVEMENT
         float dx = 0f;
         float dy = 0f;
 
-        // UP
         if (Gdx.input.isKeyPressed(Input.Keys.W)
                 || Gdx.input.isKeyPressed(Input.Keys.UP)) {
             dy += 1f;
         }
 
-        // DOWN
         if (Gdx.input.isKeyPressed(Input.Keys.S)
                 || Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
             dy -= 1f;
         }
 
-        // LEFT
         if (Gdx.input.isKeyPressed(Input.Keys.A)
                 || Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
             dx -= 1f;
         }
 
-        // RIGHT
         if (Gdx.input.isKeyPressed(Input.Keys.D)
                 || Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
             dx += 1f;
+        }
+
+        // Normalize diagonal movement
+        if (dx != 0f && dy != 0f) {
+            float diagonalFactor = 0.70710678f;
+            dx *= diagonalFactor;
+            dy *= diagonalFactor;
         }
 
         // Focus movement speed multiplier
@@ -150,18 +120,12 @@ public class InputHandler {
 
         activeCommands.add(moveCommand);
 
-        // --------------------------------------
-        // 3. CONTINUOUS SHOOTING (Z)
-        // --------------------------------------
-
+        // CONTINUOUS SHOOTING (Z)
         if (Gdx.input.isKeyPressed(keyShoot)) {
             activeCommands.add(shootCommand);
         }
 
-        // --------------------------------------
-        // 4. BOMB / SPELL CARD (X)
-        // --------------------------------------
-
+        // BOMB / SPELL CARD (X)
         if (Gdx.input.isKeyJustPressed(keyBomb)) {
             activeCommands.add(bombCommand);
         }

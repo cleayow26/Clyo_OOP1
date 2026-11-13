@@ -9,6 +9,7 @@ import com.clyo.frontend.Collidable;
 import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.BulletType;
 import com.clyo.frontend.objects.enemies.Enemy;
+import com.clyo.frontend.objects.patterns.bulletStrategy.BulletMovementPattern;
 import com.clyo.frontend.systems.AssetManager;
 
 public class Bullet extends GameObject {
@@ -23,6 +24,8 @@ public class Bullet extends GameObject {
 
     private boolean isPlayerBullet;
     private boolean grazed;
+
+    private BulletMovementPattern movementPattern;
 
     public Bullet(float x, float y, BulletType bulletType, int damage) {
         this(x, y, 400f, bulletType, damage);
@@ -47,6 +50,7 @@ public class Bullet extends GameObject {
 
         this.isPlayerBullet = true;
         this.grazed = false;
+        this.movementPattern = null;
 
         this.sprite = AssetManager.getInstance()
                 .getTextureRegion("bullet_danmaku");
@@ -79,6 +83,10 @@ public class Bullet extends GameObject {
 
         this.grazed = false;
 
+        // Reset strategy so pooled bullets do not retain old behavior
+        this.movementPattern = null;
+
+        // Reset animation timer and reactivate
         activate();
     }
 
@@ -90,8 +98,17 @@ public class Bullet extends GameObject {
 
         updateAnimationTime(delta);
 
-        x += vx * delta;
-        y += vy * delta;
+        if (movementPattern != null) {
+            movementPattern.move(this, delta);
+        } else {
+            x += vx * delta;
+            y += vy * delta;
+        }
+
+        // Keep angle synchronized with current movement direction
+        if (vx != 0f || vy != 0f) {
+            angle = (float) Math.toDegrees(Math.atan2(vy, vx));
+        }
     }
 
     @Override
@@ -215,5 +232,14 @@ public class Bullet extends GameObject {
 
     public void setGrazed(boolean grazed) {
         this.grazed = grazed;
+    }
+
+    public BulletMovementPattern getMovementPattern() {
+        return movementPattern;
+    }
+
+    public void setMovementPattern(
+            BulletMovementPattern movementPattern) {
+        this.movementPattern = movementPattern;
     }
 }

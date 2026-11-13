@@ -18,6 +18,11 @@ import com.clyo.frontend.objects.enemies.Fairy;
 import com.clyo.frontend.objects.items.Item;
 import com.clyo.frontend.objects.items.ItemType;
 
+import com.clyo.frontend.objects.patterns.entityStrategy.SCurveMovement;
+import com.clyo.frontend.objects.patterns.entityStrategy.TargetPointMovement;
+import com.clyo.frontend.objects.patterns.shootingStrategy.SpreadShot;
+import com.clyo.frontend.objects.patterns.shootingStrategy.AlternatingRingShot;
+
 import com.clyo.frontend.systems.AssetManager;
 import com.clyo.frontend.systems.AudioSystem;
 import com.clyo.frontend.systems.BulletManager;
@@ -48,10 +53,38 @@ public class Main extends ApplicationAdapter {
     private InputHandler inputHandler;
     private GameHUD gameHUD;
 
-    private float enemyShootTimer = 0f;
-
     private AssetManager assetManager;
     private AudioSystem audioSystem;
+
+    // ==========================================
+    // FAIRY WAVE VARIABLES
+    // ==========================================
+
+    private float fairySpawnTimer = 0f;
+    private int fairySpawnIndex = 0;
+
+    private final float[] fairySpawnX = {
+            60f, 68f, 76f, 84f, 92f
+    };
+
+    private static final float FAIRY_FIRST_SPAWN = 1f;
+    private static final float FAIRY_SPAWN_INTERVAL = 0.267f;
+
+    // ==========================================
+    // BOSS VARIABLES
+    // ==========================================
+
+    private float enemyShootTimer = 0f;
+
+    private float bossPhaseTimer = 0f;
+    private int currentBossPhase = 0;
+
+    private static final float BOSS_SHOOT_INTERVAL = 1.5f;
+    private static final float BOSS_PHASE_INTERVAL = 4f;
+
+    // ==========================================
+    // CREATE
+    // ==========================================
 
     @Override
     public void create() {
@@ -71,57 +104,298 @@ public class Main extends ApplicationAdapter {
         audioSystem = AudioSystem.getInstance();
         audioSystem.init();
 
+        // ======================================
         // CREATE PLAYER
+        // ======================================
+
         player = EntityFactory.createPlayer(
-                200, 50, "Reimu Hakurei", 100, 15, 3
+                200, 50,
+                "Reimu Hakurei",
+                100,
+                15,
+                3
         );
 
-        // CREATE FAIRIES
-        fairy.add(
-                EntityFactory.createFairy(
-                        150, 380, "Red Fairy", 20
-                )
-        );
-
-        fairy.add(
-                EntityFactory.createFairy(
-                        250, 380, "Blue Fairy", 20,
-                        "fairy_idle_blue"
-                )
-        );
-
+        // ======================================
         // CREATE BOSS
+        // ======================================
+
         boss = EntityFactory.createBoss(
-                250, 400, "Rumia", 150
+                200, 420,
+                "Rumia",
+                150
         );
 
+        configureBoss();
+
+        // ======================================
         // CREATE ITEMS
+        // ======================================
+
         powerItem = EntityFactory.createItem(
-                180, 450, ItemType.POWER
+                180, 450,
+                ItemType.POWER
         );
 
         pointItem = EntityFactory.createItem(
-                220, 480, ItemType.POINT
+                220, 480,
+                ItemType.POINT
         );
 
+        // ======================================
         // REGISTER ENTITIES
+        // ======================================
+
         entities.add(player);
-        entities.addAll(fairy);
         entities.add(boss);
         entities.add(powerItem);
         entities.add(pointItem);
 
-        // INITIALIZE INPUT HANDLER AND HUD
+        // Give BulletManager access to entities
+        bulletManager.setEntities(entities);
+
+        // ======================================
+        // INPUT HANDLER AND HUD
+        // ======================================
+
         inputHandler = new InputHandler(entities);
         gameHUD = new GameHUD();
 
-        // REGISTER HUD AS PLAYER OBSERVER
         player.registerObserver(gameHUD);
 
-        System.out.println("Total entities: " + entities.size());
+        System.out.println("[Main] Game initialized!");
+        System.out.println("[Main] Total entities: " + entities.size());
     }
 
+    // ==========================================
+    // CONFIGURE BOSS
+    // ==========================================
+
+    private void configureBoss() {
+
+        if (boss == null) {
+            return;
+        }
+
+        boss.setX(200f);
+        boss.setY(420f);
+
+        boss.setMovementPattern(
+                new TargetPointMovement(
+                        200f,
+                        420f,
+                        150f
+                )
+        );
+
+        boss.setShootingPattern(
+                new SpreadShot(
+                        220f,
+                        5,
+                        25f,
+                        10,
+                        player,
+                        "bullet_danmaku_red"
+                )
+        );
+
+        enemyShootTimer = 0f;
+        bossPhaseTimer = 0f;
+        currentBossPhase = 0;
+    }
+
+    // ==========================================
+    // FAIRY WAVE SPAWNING
+    // ==========================================
+
+    private void updateFairyWave(float delta) {
+
+        fairySpawnTimer += delta;
+
+        while (fairySpawnIndex < fairySpawnX.length) {
+
+            float requiredTime = FAIRY_FIRST_SPAWN
+                    + fairySpawnIndex * FAIRY_SPAWN_INTERVAL;
+
+            if (fairySpawnTimer < requiredTime) {
+                break;
+            }
+
+            spawnFairy(fairySpawnIndex);
+
+            fairySpawnIndex++;
+        }
+    }
+
+    // ==========================================
+    // SPAWN FAIRY
+    // ==========================================
+
+    private void spawnFairy(int index) {
+
+        float spawnX = fairySpawnX[index];
+
+        Fairy newFairy = EntityFactory.createFairy(
+                spawnX,
+                480f,
+                "Left S-Curve Fairy",
+                8,
+                "fairy_idle_blue"
+        );
+
+        newFairy.setMovementPattern(
+                new SCurveMovement(
+                        130f,
+                        (float) Math.toRadians(270f),
+                        false
+                )
+        );
+
+        fairy.add(newFairy);
+        entities.add(newFairy);
+
+        System.out.println(
+                "[Main] Fairy spawned: " + (index + 1)
+        );
+    }
+
+    // ==========================================
+    // FAIRY SHOOTING SCHEDULER
+    // ==========================================
+
+    private void updateFairyShooting(float delta) {
+
+        for (Fairy currentFairy : fairy) {
+
+            if (currentFairy == null
+                    || currentFairy.isDestroyed()) {
+                continue;
+            }
+
+            if (currentFairy.canShoot(delta)) {
+
+                currentFairy.shootBullet(bulletManager);
+            }
+        }
+    }
+
+    // ==========================================
+    // CLEAN FAIRY LIST
+    // ==========================================
+
+    private void cleanFairyList() {
+
+        Iterator<Fairy> iterator = fairy.iterator();
+
+        while (iterator.hasNext()) {
+
+            Fairy currentFairy = iterator.next();
+
+            if (currentFairy == null
+                    || currentFairy.isDestroyed()
+                    || currentFairy.isOffScreen(416, 560)) {
+
+                iterator.remove();
+            }
+        }
+    }
+
+    // ==========================================
+    // BOSS SHOOTING SCHEDULER
+    // ==========================================
+
+    private void updateEnemyScheduler(float delta) {
+
+        if (boss == null || boss.isDestroyed()) {
+            return;
+        }
+
+        enemyShootTimer += delta;
+
+        if (enemyShootTimer >= BOSS_SHOOT_INTERVAL) {
+
+            boss.shootBullet(bulletManager);
+
+            enemyShootTimer = 0f;
+        }
+    }
+
+    // ==========================================
+    // BOSS PHASE SWITCHING
+    // ==========================================
+
+    private void updateBossPhase(float delta) {
+
+        if (boss == null || boss.isDestroyed()) {
+            return;
+        }
+
+        bossPhaseTimer += delta;
+
+        if (bossPhaseTimer >= BOSS_PHASE_INTERVAL) {
+
+            bossPhaseTimer = 0f;
+
+            currentBossPhase = (currentBossPhase + 1) % 2;
+
+            if (currentBossPhase == 0) {
+
+                // PHASE 0: TARGETED SPREAD SHOT
+
+                boss.setMovementPattern(
+                        new TargetPointMovement(
+                                120f,
+                                420f,
+                                150f
+                        )
+                );
+
+                boss.setShootingPattern(
+                        new SpreadShot(
+                                220f,
+                                5,
+                                25f,
+                                10,
+                                player,
+                                "bullet_danmaku_red"
+                        )
+                );
+
+                System.out.println(
+                        "[Boss] Phase 0: Targeted Spread Shot"
+                );
+
+            } else {
+
+                // PHASE 1: ALTERNATING RING SHOT
+
+                boss.setMovementPattern(
+                        new TargetPointMovement(
+                                280f,
+                                420f,
+                                150f
+                        )
+                );
+
+                boss.setShootingPattern(
+                        new AlternatingRingShot(
+                                180f,
+                                16,
+                                10
+                        )
+                );
+
+                System.out.println(
+                        "[Boss] Phase 1: Alternating Ring Shot"
+                );
+            }
+        }
+    }
+
+    // ==========================================
     // UPDATE AND CLEAN ENTITIES
+    // ==========================================
+
     public <T extends GameObject> void updateAndClean(
             List<T> list,
             float delta,
@@ -139,29 +413,18 @@ public class Main extends ApplicationAdapter {
             if (entity.isDestroyed()
                     || entity.isOffScreen(
                             screenWidth,
-                            screenHeight)) {
+                            screenHeight
+                    )) {
 
                 iterator.remove();
             }
         }
     }
 
-    // BOSS SHOOTING SCHEDULER
-    private void updateEnemyScheduler(float delta) {
-
-        enemyShootTimer += delta;
-
-        if (enemyShootTimer >= 1.5f) {
-
-            if (boss != null && !boss.isDestroyed()) {
-                boss.shootBullet(bulletManager);
-            }
-
-            enemyShootTimer = 0f;
-        }
-    }
-
+    // ==========================================
     // RESTART GAME
+    // ==========================================
+
     private void restartGame() {
 
         System.out.println("[Main] Restarting game...");
@@ -171,53 +434,60 @@ public class Main extends ApplicationAdapter {
         bulletManager.clearEnemyBullets();
         bulletManager.clearPlayerBullets();
 
-        player.resetGame();
-
-        entities.add(player);
-
         fairy.clear();
 
-        fairy.add(
-                EntityFactory.createFairy(
-                        150, 380, "Red Fairy", 20
-                )
-        );
+        player.resetGame();
 
-        fairy.add(
-                EntityFactory.createFairy(
-                        250, 380, "Blue Fairy", 20,
-                        "fairy_idle_blue"
-                )
-        );
+        // Reset wave timers
+        fairySpawnTimer = 0f;
+        fairySpawnIndex = 0;
 
+        // Reset boss
         boss = EntityFactory.createBoss(
-                250, 400, "Rumia", 150
+                200, 420,
+                "Rumia",
+                150
         );
 
+        configureBoss();
+
+        // Recreate items
         powerItem = EntityFactory.createItem(
-                180, 450, ItemType.POWER
+                180, 450,
+                ItemType.POWER
         );
 
         pointItem = EntityFactory.createItem(
-                220, 480, ItemType.POINT
+                220, 480,
+                ItemType.POINT
         );
 
-        entities.addAll(fairy);
+        // Restore entities
+        entities.add(player);
         entities.add(boss);
         entities.add(powerItem);
         entities.add(pointItem);
 
+        bulletManager.setEntities(entities);
+
         inputHandler.setEntities(entities);
 
-        enemyShootTimer = 0f;
+        System.out.println("[Main] Game restarted!");
     }
+
+    // ==========================================
+    // RENDER
+    // ==========================================
 
     @Override
     public void render() {
 
         float delta = Gdx.graphics.getDeltaTime();
 
+        // ======================================
         // RESTART WHEN GAME OVER
+        // ======================================
+
         if (Gdx.input != null
                 && player.isGameOver()
                 && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
@@ -225,7 +495,10 @@ public class Main extends ApplicationAdapter {
             restartGame();
         }
 
-        // HANDLE PLAYER COMMANDS
+        // ======================================
+        // PLAYER INPUT
+        // ======================================
+
         if (!player.isGameOver()) {
 
             List<Command> commands =
@@ -234,14 +507,27 @@ public class Main extends ApplicationAdapter {
             for (Command command : commands) {
                 command.execute(player, bulletManager);
             }
-        }
 
-        // UPDATE ENEMY SCHEDULER
-        if (!player.isGameOver()) {
+            // ==================================
+            // FAIRY WAVE
+            // ==================================
+
+            updateFairyWave(delta);
+
+            updateFairyShooting(delta);
+
+            // ==================================
+            // BOSS SCHEDULERS
+            // ==================================
+
             updateEnemyScheduler(delta);
+            updateBossPhase(delta);
         }
 
+        // ======================================
         // UPDATE ENTITIES
+        // ======================================
+
         updateAndClean(
                 entities,
                 delta,
@@ -249,20 +535,43 @@ public class Main extends ApplicationAdapter {
                 560
         );
 
-        // UPDATE BULLETS
-        bulletManager.update(delta, 416, 560);
+        cleanFairyList();
 
-        // CHECK COLLISIONS
+        // ======================================
+        // UPDATE BULLETS
+        // ======================================
+
+        bulletManager.update(
+                delta,
+                416,
+                560
+        );
+
+        // ======================================
+        // COLLISIONS
+        // ======================================
+
         collisionReferee.resolveCollisions(
                 player,
                 entities,
                 bulletManager
         );
 
+        // ======================================
         // CLEAR SCREEN
-        ScreenUtils.clear(0.1f, 0.1f, 0.15f, 1f);
+        // ======================================
 
+        ScreenUtils.clear(
+                0.1f,
+                0.1f,
+                0.15f,
+                1f
+        );
+
+        // ======================================
         // DRAW SPRITES AND HUD
+        // ======================================
+
         batch.begin();
 
         for (GameObject entity : entities) {
@@ -278,7 +587,10 @@ public class Main extends ApplicationAdapter {
 
         batch.end();
 
+        // ======================================
         // DRAW ENTITY SHAPES
+        // ======================================
+
         shapeRenderer.begin(
                 ShapeRenderer.ShapeType.Filled
         );
@@ -292,9 +604,16 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.end();
 
-        // DRAW HUD BACKGROUND
+        // ======================================
+        // HUD BACKGROUND
+        // ======================================
+
         gameHUD.renderBackground();
     }
+
+    // ==========================================
+    // DISPOSE
+    // ==========================================
 
     @Override
     public void dispose() {

@@ -5,9 +5,13 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
 import com.clyo.frontend.GameObject;
 import com.clyo.frontend.objects.BulletType;
+import com.clyo.frontend.objects.bullets.Bullet;
 import com.clyo.frontend.objects.items.Item;
 import com.clyo.frontend.objects.items.ItemType;
-import com.clyo.frontend.objects.bullets.Bullet;
+import com.clyo.frontend.objects.patterns.bulletStrategy.BulletMovementPattern;
+import com.clyo.frontend.objects.patterns.bulletStrategy.FantasySealMovement;
+import com.clyo.frontend.objects.patterns.bulletStrategy.HomingBulletMovement;
+import com.clyo.frontend.objects.patterns.shootingStrategy.RingShot;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -23,16 +27,34 @@ public class BulletManager {
     private List<Bullet> activePlayerBullets;
     private List<Bullet> activeEnemyBullets;
 
+    private List<GameObject> entities;
+
     public BulletManager() {
         playerBulletPool = new LinkedList<>();
         enemyBulletPool = new LinkedList<>();
 
         activePlayerBullets = new ArrayList<>();
         activeEnemyBullets = new ArrayList<>();
+
+        entities = new ArrayList<>();
     }
 
     // ==========================================
-    // QUESTION 1: SPAWN PLAYER BULLET
+    // ENTITY MANAGEMENT
+    // ==========================================
+
+    public void setEntities(List<GameObject> entities) {
+        this.entities = entities != null
+                ? entities
+                : new ArrayList<>();
+    }
+
+    public List<GameObject> getEntities() {
+        return entities;
+    }
+
+    // ==========================================
+    // SPAWN PLAYER BULLET
     // ==========================================
 
     public Bullet spawnPlayerBullet(
@@ -41,6 +63,19 @@ public class BulletManager {
             float vx,
             float vy,
             int damage) {
+
+        return spawnPlayerBullet(
+                x, y, vx, vy, damage, null
+        );
+    }
+
+    public Bullet spawnPlayerBullet(
+            float x,
+            float y,
+            float vx,
+            float vy,
+            int damage,
+            String spriteKey) {
 
         Bullet bullet;
 
@@ -66,13 +101,15 @@ public class BulletManager {
                 true
         );
 
+        applySprite(bullet, spriteKey);
+
         activePlayerBullets.add(bullet);
 
         return bullet;
     }
 
     // ==========================================
-    // QUESTION 1: SPAWN ENEMY BULLET
+    // SPAWN ENEMY BULLET
     // ==========================================
 
     public Bullet spawnEnemyBullet(
@@ -81,6 +118,19 @@ public class BulletManager {
             float vx,
             float vy,
             int damage) {
+
+        return spawnEnemyBullet(
+                x, y, vx, vy, damage, null
+        );
+    }
+
+    public Bullet spawnEnemyBullet(
+            float x,
+            float y,
+            float vx,
+            float vy,
+            int damage,
+            String spriteKey) {
 
         Bullet bullet;
 
@@ -106,13 +156,77 @@ public class BulletManager {
                 false
         );
 
+        applySprite(bullet, spriteKey);
+
         activeEnemyBullets.add(bullet);
 
         return bullet;
     }
 
     // ==========================================
-    // QUESTION 2: UPDATE AND RECYCLE BULLETS
+    // APPLY CUSTOM BULLET SPRITE
+    // ==========================================
+
+    private void applySprite(Bullet bullet, String spriteKey) {
+
+        if (bullet == null) {
+            return;
+        }
+
+        String key = spriteKey != null
+                ? spriteKey
+                : "bullet_danmaku";
+
+        if (AssetManager.getInstance().getTextureRegion(key) != null) {
+            bullet.setSprite(
+                    AssetManager.getInstance().getTextureRegion(key)
+            );
+        }
+    }
+
+    // ==========================================
+    // SPAWN BOMB ORBS
+    // ==========================================
+
+    public void spawnBombOrbs(
+            float x,
+            float y,
+            GameObject target,
+            List<GameObject> entities) {
+
+        int orbCount = 8;
+        float orbSpeed = 260f;
+        int damage = 50;
+
+        RingShot ringShot = new RingShot(
+                orbSpeed,
+                orbCount,
+                damage
+        );
+
+        ringShot.execute(x, y, this, true);
+
+        // Apply homing movement to the newly spawned orbs.
+        int firstNewBullet = activePlayerBullets.size() - orbCount;
+
+        for (int i = Math.max(0, firstNewBullet);
+             i < activePlayerBullets.size();
+             i++) {
+
+            Bullet bullet = activePlayerBullets.get(i);
+
+            bullet.setMovementPattern(
+                    new FantasySealMovement(target, orbSpeed, 5f)
+            );
+        }
+
+        if (entities != null) {
+            setEntities(entities);
+        }
+    }
+
+    // ==========================================
+    // UPDATE AND RECYCLE BULLETS
     // ==========================================
 
     public void update(
@@ -120,53 +234,65 @@ public class BulletManager {
             float screenWidth,
             float screenHeight) {
 
-        Iterator<Bullet> playerIterator =
-                activePlayerBullets.iterator();
+        updateBulletList(
+                activePlayerBullets,
+                playerBulletPool,
+                delta,
+                screenWidth,
+                screenHeight
+        );
 
-        while (playerIterator.hasNext()) {
+        updateBulletList(
+                activeEnemyBullets,
+                enemyBulletPool,
+                delta,
+                screenWidth,
+                screenHeight
+        );
+    }
 
-            Bullet bullet = playerIterator.next();
+    private void updateBulletList(
+            List<Bullet> activeBullets,
+            Queue<Bullet> pool,
+            float delta,
+            float screenWidth,
+            float screenHeight) {
 
-            bullet.update(delta);
+        Iterator<Bullet> iterator = activeBullets.iterator();
 
-            if (bullet.isDestroyed()
-                    || bullet.isOffScreen(
-                            screenWidth,
-                            screenHeight)) {
+        while (iterator.hasNext()) {
 
-                bullet.destroy();
+            Bullet bullet = iterator.next();
 
-                playerIterator.remove();
+            if (bullet.getMovementPattern()
+                    instanceof HomingBulletMovement) {
 
-                playerBulletPool.offer(bullet);
+                HomingBulletMovement homing =
+                        (HomingBulletMovement) bullet.getMovementPattern();
+
+                if (homing.getEntities() == null) {
+                    homing.setEntities(entities);
+                }
             }
-        }
-
-        Iterator<Bullet> enemyIterator =
-                activeEnemyBullets.iterator();
-
-        while (enemyIterator.hasNext()) {
-
-            Bullet bullet = enemyIterator.next();
 
             bullet.update(delta);
 
             if (bullet.isDestroyed()
-                    || bullet.isOffScreen(
-                            screenWidth,
-                            screenHeight)) {
+                    || bullet.isOffScreen(screenWidth, screenHeight)) {
 
                 bullet.destroy();
 
-                enemyIterator.remove();
+                iterator.remove();
 
-                enemyBulletPool.offer(bullet);
+                bullet.setMovementPattern(null);
+
+                pool.offer(bullet);
             }
         }
     }
 
     // ==========================================
-    // PROBLEM 3: CLEAR ENEMY BULLETS
+    // CLEAR ENEMY BULLETS
     // ==========================================
 
     public void clearEnemyBullets(List<GameObject> entities) {
@@ -191,6 +317,8 @@ public class BulletManager {
 
             bullet.destroy();
 
+            bullet.setMovementPattern(null);
+
             iterator.remove();
 
             enemyBulletPool.offer(bullet);
@@ -202,21 +330,23 @@ public class BulletManager {
     }
 
     // ==========================================
-    // PROBLEM 3: CLEAR PLAYER BULLETS
+    // CLEAR PLAYER BULLETS
     // ==========================================
 
     public void clearPlayerBullets() {
 
-        Iterator<Bullet> pIter =
+        Iterator<Bullet> iterator =
                 activePlayerBullets.iterator();
 
-        while (pIter.hasNext()) {
+        while (iterator.hasNext()) {
 
-            Bullet bullet = pIter.next();
+            Bullet bullet = iterator.next();
 
             bullet.destroy();
 
-            pIter.remove();
+            bullet.setMovementPattern(null);
+
+            iterator.remove();
 
             playerBulletPool.offer(bullet);
         }

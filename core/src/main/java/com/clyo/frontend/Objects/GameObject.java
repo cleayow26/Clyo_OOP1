@@ -43,6 +43,7 @@ public abstract class GameObject implements Collidable {
             if (currentFrame != null) {
                 batch.draw(currentFrame, x, y, width, height);
             }
+
         } else if (sprite != null) {
             batch.draw(sprite, x, y, width, height);
         }
@@ -50,6 +51,11 @@ public abstract class GameObject implements Collidable {
 
     public void updateAnimationTime(float delta) {
         stateTime += delta;
+    }
+
+    // Getter for animation and bullet movement time
+    public float getStateTime() {
+        return stateTime;
     }
 
     public TextureRegion getSprite() {
@@ -101,8 +107,7 @@ public abstract class GameObject implements Collidable {
         destroyed = true;
     }
 
-    // Mengaktifkan kembali object yang sudah dihancurkan.
-    // Dibutuhkan agar object bisa digunakan ulang oleh Object Pool.
+    // Reactivate object for Object Pool
     public void activate() {
         destroyed = false;
         stateTime = 0f;
@@ -110,9 +115,9 @@ public abstract class GameObject implements Collidable {
 
     public boolean isOffScreen(float screenWidth, float screenHeight) {
         return x + width < 0 ||
-               x > screenWidth ||
-               y + height < 0 ||
-               y > screenHeight;
+                x > screenWidth ||
+                y + height < 0 ||
+                y > screenHeight;
     }
 
     public Hitbox getCoreHitbox() {
@@ -120,6 +125,7 @@ public abstract class GameObject implements Collidable {
     }
 
     public static class Hitbox {
+
         private float x;
         private float y;
         private float width;
@@ -134,9 +140,9 @@ public abstract class GameObject implements Collidable {
 
         public boolean overlaps(Hitbox other) {
             return x < other.x + other.width &&
-                   x + width > other.x &&
-                   y < other.y + other.height &&
-                   y + height > other.y;
+                    x + width > other.x &&
+                    y < other.y + other.height &&
+                    y + height > other.y;
         }
     }
 }

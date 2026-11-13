@@ -1,27 +1,41 @@
 
 package com.clyo.frontend.objects.enemies;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+
 import com.clyo.frontend.Collidable;
-import com.clyo.frontend.GameObject;
+import com.clyo.frontend.objects.EntityShooter;
 import com.clyo.frontend.objects.Player;
+import com.clyo.frontend.objects.patterns.ShootingPattern;
+import com.clyo.frontend.objects.patterns.entityStrategy.EntityMovementPattern;
 import com.clyo.frontend.systems.AudioSystem;
 
-public class Enemy extends GameObject {
+public class Enemy extends EntityShooter {
 
     protected String name;
     protected int hp;
     protected int maxHp;
     protected long scoreValue;
 
+    protected Color color = Color.RED;
+
+    // ==========================================
+    // CONSTRUCTOR 1
+    // ==========================================
+
     public Enemy(String name, int hp) {
-        super(450, 400, 50, 50);
+        super(450, 400, 50, 50, 0);
 
         this.name = name;
         this.hp = hp;
         this.maxHp = hp;
         this.scoreValue = 100;
     }
+
+    // ==========================================
+    // CONSTRUCTOR 2
+    // ==========================================
 
     public Enemy(
             float x,
@@ -29,15 +43,68 @@ public class Enemy extends GameObject {
             float width,
             float height,
             String name,
-            int hp
-    ) {
-        super(x, y, width, height);
+            int hp) {
+
+        super(x, y, width, height, 0);
 
         this.name = name;
         this.hp = hp;
         this.maxHp = hp;
         this.scoreValue = 100;
     }
+
+    // ==========================================
+    // CONSTRUCTOR 3: COLOR AND SCORE
+    // ==========================================
+
+    public Enemy(
+            float x,
+            float y,
+            float width,
+            float height,
+            Color color,
+            String name,
+            int hp,
+            long scoreValue) {
+
+        super(x, y, width, height, 0);
+
+        this.color = color != null ? color : Color.RED;
+        this.name = name;
+        this.hp = hp;
+        this.maxHp = hp;
+        this.scoreValue = scoreValue;
+    }
+
+    // ==========================================
+    // CONSTRUCTOR 4: DEPENDENCY INJECTION
+    // ==========================================
+
+    public Enemy(
+            float x,
+            float y,
+            float width,
+            float height,
+            String name,
+            int hp,
+            long scoreValue,
+            ShootingPattern shootingPattern,
+            EntityMovementPattern movementPattern) {
+
+        super(
+                x, y, width, height, 0,
+                shootingPattern, movementPattern
+        );
+
+        this.name = name;
+        this.hp = hp;
+        this.maxHp = hp;
+        this.scoreValue = scoreValue;
+    }
+
+    // ==========================================
+    // GETTERS AND SETTERS
+    // ==========================================
 
     public String getName() {
         return name;
@@ -59,7 +126,22 @@ public class Enemy extends GameObject {
         this.scoreValue = scoreValue;
     }
 
+    public Color getColor() {
+        return color;
+    }
+
+    public void setColor(Color color) {
+        if (color != null) {
+            this.color = color;
+        }
+    }
+
+    // ==========================================
+    // DAMAGE
+    // ==========================================
+
     public void takeDamage(int damage) {
+
         if (isDestroyed() || damage <= 0) {
             return;
         }
@@ -72,6 +154,7 @@ public class Enemy extends GameObject {
         );
 
         if (hp == 0) {
+
             System.out.println(name + " was defeated!");
 
             AudioSystem.getInstance().playEnemyDeath();
@@ -80,7 +163,16 @@ public class Enemy extends GameObject {
         }
     }
 
+    // ==========================================
+    // ATTACK
+    // ==========================================
+
     public void attack(Player player, int damage) {
+
+        if (player == null || player.isDestroyed()) {
+            return;
+        }
+
         player.setHp(player.getHp() - damage);
 
         System.out.println(
@@ -89,18 +181,39 @@ public class Enemy extends GameObject {
         );
     }
 
+    // ==========================================
+    // UPDATE
+    // ==========================================
+
     @Override
     public void update(float delta) {
-        updateAnimationTime(delta);
+        if (isDestroyed()) {
+            return;
+        }
+
+        super.update(delta);
     }
+
+    // ==========================================
+    // RENDER
+    // ==========================================
 
     @Override
     public void render(ShapeRenderer shapeRenderer) {
+
+        if (isDestroyed() || shapeRenderer == null) {
+            return;
+        }
+
         if (getSprite() == null && getAnimation() == null) {
-            shapeRenderer.setColor(1, 0, 0, 1);
+            shapeRenderer.setColor(color);
             shapeRenderer.rect(x, y, width, height);
         }
     }
+
+    // ==========================================
+    // COLLISION
+    // ==========================================
 
     @Override
     public void onCollision(Collidable other) {

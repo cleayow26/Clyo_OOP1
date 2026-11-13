@@ -1,51 +1,81 @@
 
 package com.clyo.frontend.objects.enemies;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 import com.clyo.frontend.objects.patterns.ShootingPattern;
+import com.clyo.frontend.objects.patterns.entityStrategy.FixedMovement;
 import com.clyo.frontend.objects.patterns.shootingStrategy.SpreadShot;
-import com.clyo.frontend.systems.BulletManager;
 import com.clyo.frontend.systems.AssetManager;
+import com.clyo.frontend.systems.BulletManager;
 
 public class Boss extends Enemy {
 
-    private ShootingPattern shootingPattern =
-            new SpreadShot(200f, 3, 30f);
+    // ==========================================
+    // CONSTRUCTORS
+    // ==========================================
 
     public Boss(String name, int hp) {
-        super(name, hp);
-
-        width = 80;
-        height = 80;
-
-        setScoreValue(500);
-        setAnimation(
-                AssetManager.getInstance().getAnimation("boss_idle")
+        super(
+                380, 400,
+                64, 64,
+                Color.BLUE,
+                name,
+                hp,
+                5000L
         );
+
+        initializeBoss();
     }
 
     public Boss(float x, float y, String name, int hp) {
-        super(x, y, 80, 80, name, hp);
-
-        setScoreValue(500);
-        setAnimation(
-                AssetManager.getInstance().getAnimation("boss_idle")
+        super(
+                x, y,
+                64, 64,
+                Color.BLUE,
+                name,
+                hp,
+                5000L
         );
+
+        initializeBoss();
     }
 
     public Boss(float x, float y) {
         this(x, y, "Rumia", 100);
     }
 
+    private void initializeBoss() {
+
+        setShootingPattern(
+                new SpreadShot(200f, 3, 30f)
+        );
+
+        setMovementPattern(new FixedMovement());
+
+        setAnimation(
+                AssetManager.getInstance().getAnimation("boss_idle")
+        );
+    }
+
+    // ==========================================
+    // SHOOT BULLET
+    // ==========================================
+
     public void shootBullet(BulletManager bulletManager) {
-        if (shootingPattern == null
-                || bulletManager == null
-                || isDestroyed()) {
+
+        if (bulletManager == null || isDestroyed()) {
             return;
         }
 
-        shootingPattern.execute(
+        ShootingPattern pattern = getShootingPattern();
+
+        if (pattern == null) {
+            return;
+        }
+
+        pattern.execute(
                 x + width / 2f - 8f,
                 y,
                 bulletManager,
@@ -53,18 +83,19 @@ public class Boss extends Enemy {
         );
     }
 
-    public ShootingPattern getShootingPattern() {
-        return shootingPattern;
-    }
-
-    public void setShootingPattern(ShootingPattern shootingPattern) {
-        this.shootingPattern = shootingPattern;
-    }
+    // ==========================================
+    // RENDER
+    // ==========================================
 
     @Override
     public void render(ShapeRenderer shapeRenderer) {
+
+        if (isDestroyed() || shapeRenderer == null) {
+            return;
+        }
+
         if (getSprite() == null && getAnimation() == null) {
-            shapeRenderer.setColor(0.7f, 0, 0.7f, 1);
+            shapeRenderer.setColor(0.7f, 0f, 0.7f, 1f);
             shapeRenderer.rect(x, y, width, height);
         }
     }

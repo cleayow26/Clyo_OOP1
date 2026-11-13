@@ -12,6 +12,11 @@ import com.clyo.frontend.objects.enemies.Boss;
 import com.clyo.frontend.objects.enemies.Enemy;
 import com.clyo.frontend.objects.items.Item;
 import com.clyo.frontend.objects.patterns.ShootingPattern;
+import com.clyo.frontend.objects.patterns.bulletStrategy.HomingBulletMovement;
+import com.clyo.frontend.objects.patterns.entityStrategy.FixedMovement;
+import com.clyo.frontend.objects.patterns.shootingStrategy.FrontShot;
+import com.clyo.frontend.objects.patterns.shootingStrategy.SideShot;
+import com.clyo.frontend.objects.patterns.shootingStrategy.SpreadShot;
 import com.clyo.frontend.systems.AssetManager;
 import com.clyo.frontend.systems.AudioSystem;
 import com.clyo.frontend.systems.BulletManager;
@@ -20,7 +25,7 @@ import com.clyo.frontend.observers.GameObserver;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Player extends GameObject {
+public class Player extends EntityShooter {
 
     private String name;
     private int hp;
@@ -31,79 +36,29 @@ public class Player extends GameObject {
 
     private final List<GameObserver> observers = new ArrayList<>();
 
-    // PROBLEM 4: PLAYER ATTRIBUTES
     private int lives = 3;
     private int grazeCount = 0;
-    private boolean focused = false;
-    private float shootTimer = 0.1f;
-    private float shootCooldown = 0.1f;
-    private float invulnerableTimer = 0f;
 
+    private boolean focused = false;
+
+    private float shootTimer = 0f;
+    private float shootCooldown = 5f / 60f;
+
+    private float homingShootTimer = 0f;
+    private float homingCooldown = 30f / 60f;
+
+    private float invulnerableTimer = 0f;
     private float movementSpeed = 250f;
 
-    private ShootingPattern shootingPattern;
-
-
-
-public void registerObserver(GameObserver observer) {
-    if (observer != null && !observers.contains(observer)) {
-        observers.add(observer);
-
-        observer.onScoreChanged(score);
-        observer.onHpChanged(hp);
-        observer.onLivesChanged(lives);
-        observer.onSpellCardsChanged(spellCards);
-        observer.onPowerChanged(power);
-        observer.onGrazeChanged(grazeCount);
-    }
-}
-
-public void removeObserver(GameObserver observer) {
-    observers.remove(observer);
-}
-
-private void notifyScoreChanged() {
-    for (GameObserver obs : observers) {
-        obs.onScoreChanged(score);
-    }
-}
-
-private void notifyHpChanged() {
-    for (GameObserver obs : observers) {
-        obs.onHpChanged(hp);
-    }
-}
-
-private void notifyLivesChanged() {
-    for (GameObserver obs : observers) {
-        obs.onLivesChanged(lives);
-    }
-}
-
-private void notifySpellCardsChanged() {
-    for (GameObserver obs : observers) {
-        obs.onSpellCardsChanged(spellCards);
-    }
-}
-
-private void notifyPowerChanged() {
-    for (GameObserver obs : observers) {
-        obs.onPowerChanged(power);
-    }
-}
-
-private void notifyGrazeChanged() {
-    for (GameObserver obs : observers) {
-        obs.onGrazeChanged(grazeCount);
-    }
-}
+    private ShootingPattern mainShootingPattern;
+    private ShootingPattern sideShootingPattern;
 
     // ==========================================
     // CONSTRUCTORS
     // ==========================================
 
     public Player(String name, int hp, int power, int spellCards) {
-        super(320, 50, 50, 50);
+        super(320, 50, 50, 50, 240f);
 
         this.name = name;
         this.hp = hp;
@@ -112,9 +67,7 @@ private void notifyGrazeChanged() {
         this.spellCards = spellCards;
         this.score = 0;
 
-        setAnimation(
-                AssetManager.getInstance().getAnimation("player_idle")
-        );
+        initializePlayer();
     }
 
     public Player(
@@ -125,7 +78,7 @@ private void notifyGrazeChanged() {
             int maxHp,
             int power) {
 
-        super(x, y, 50, 50);
+        super(x, y, 50, 50, 240f);
 
         this.name = name;
         this.hp = hp;
@@ -134,9 +87,78 @@ private void notifyGrazeChanged() {
         this.spellCards = 3;
         this.score = 0;
 
+        initializePlayer();
+    }
+
+    private void initializePlayer() {
+        setPlayerShooter(true);
+        setMovementPattern(new FixedMovement());
+
         setAnimation(
                 AssetManager.getInstance().getAnimation("player_idle")
         );
+
+        shootTimer = shootCooldown;
+        homingShootTimer = homingCooldown;
+
+        updatePowerStrategy();
+    }
+
+    // ==========================================
+    // OBSERVER PATTERN
+    // ==========================================
+
+    public void registerObserver(GameObserver observer) {
+        if (observer != null && !observers.contains(observer)) {
+            observers.add(observer);
+
+            observer.onScoreChanged(score);
+            observer.onHpChanged(hp);
+            observer.onLivesChanged(lives);
+            observer.onSpellCardsChanged(spellCards);
+            observer.onPowerChanged(power);
+            observer.onGrazeChanged(grazeCount);
+        }
+    }
+
+    public void removeObserver(GameObserver observer) {
+        observers.remove(observer);
+    }
+
+    private void notifyScoreChanged() {
+        for (GameObserver obs : observers) {
+            obs.onScoreChanged(score);
+        }
+    }
+
+    private void notifyHpChanged() {
+        for (GameObserver obs : observers) {
+            obs.onHpChanged(hp);
+        }
+    }
+
+    private void notifyLivesChanged() {
+        for (GameObserver obs : observers) {
+            obs.onLivesChanged(lives);
+        }
+    }
+
+    private void notifySpellCardsChanged() {
+        for (GameObserver obs : observers) {
+            obs.onSpellCardsChanged(spellCards);
+        }
+    }
+
+    private void notifyPowerChanged() {
+        for (GameObserver obs : observers) {
+            obs.onPowerChanged(power);
+        }
+    }
+
+    private void notifyGrazeChanged() {
+        for (GameObserver obs : observers) {
+            obs.onGrazeChanged(grazeCount);
+        }
     }
 
     // ==========================================
@@ -157,6 +179,7 @@ private void notifyGrazeChanged() {
 
     public void setHp(int hp) {
         this.hp = Math.max(0, Math.min(hp, maxHp));
+        notifyHpChanged();
     }
 
     public int getMaxHp() {
@@ -168,7 +191,9 @@ private void notifyGrazeChanged() {
     }
 
     public void setPower(int power) {
-        this.power = power;
+        this.power = Math.max(0, Math.min(power, 128));
+        updatePowerStrategy();
+        notifyPowerChanged();
     }
 
     public int getSpellCards() {
@@ -176,7 +201,8 @@ private void notifyGrazeChanged() {
     }
 
     public void setSpellCards(int spellCards) {
-        this.spellCards = spellCards;
+        this.spellCards = Math.max(0, spellCards);
+        notifySpellCardsChanged();
     }
 
     public long getScore() {
@@ -185,10 +211,12 @@ private void notifyGrazeChanged() {
 
     public void setScore(long score) {
         this.score = score;
+        notifyScoreChanged();
     }
 
     public void addScore(long amount) {
         score += amount;
+        notifyScoreChanged();
     }
 
     public int getLives() {
@@ -197,6 +225,7 @@ private void notifyGrazeChanged() {
 
     public void setLives(int lives) {
         this.lives = Math.max(0, lives);
+        notifyLivesChanged();
     }
 
     public int getGrazeCount() {
@@ -205,6 +234,7 @@ private void notifyGrazeChanged() {
 
     public void setGrazeCount(int grazeCount) {
         this.grazeCount = Math.max(0, grazeCount);
+        notifyGrazeChanged();
     }
 
     public boolean isFocused() {
@@ -212,7 +242,10 @@ private void notifyGrazeChanged() {
     }
 
     public void setFocused(boolean focused) {
-        this.focused = focused;
+        if (this.focused != focused) {
+            this.focused = focused;
+            updatePowerStrategy();
+        }
     }
 
     public float getShootTimer() {
@@ -231,12 +264,209 @@ private void notifyGrazeChanged() {
         this.shootCooldown = shootCooldown;
     }
 
+    public float getHomingShootTimer() {
+        return homingShootTimer;
+    }
+
+    public float getHomingCooldown() {
+        return homingCooldown;
+    }
+
     public float getInvulnerableTimer() {
         return invulnerableTimer;
     }
 
     public void setInvulnerableTimer(float invulnerableTimer) {
-        this.invulnerableTimer = invulnerableTimer;
+        this.invulnerableTimer = Math.max(0f, invulnerableTimer);
+    }
+
+    public ShootingPattern getMainShootingPattern() {
+        return mainShootingPattern;
+    }
+
+    public ShootingPattern getSideShootingPattern() {
+        return sideShootingPattern;
+    }
+
+    // ==========================================
+    // DYNAMIC POWER SHOOTING STRATEGY
+    // ==========================================
+
+    private void updatePowerStrategy() {
+
+        float spreadAngle = focused ? 4f : 18f;
+        float dualSpreadAngle = focused ? 3f : 12f;
+
+        float sideHOffset = focused ? 8f : 24f;
+        float sideVOffset = focused ? 16f : -16f;
+
+        float leftAngle = focused ? 100f : 120f;
+        float rightAngle = focused ? 80f : 60f;
+
+        float normalSpeed = 720f;
+        float homingSpeed = 500f;
+
+        mainShootingPattern = null;
+        sideShootingPattern = null;
+
+        homingCooldown = 30f / 60f;
+
+        if (power < 8) {
+            mainShootingPattern = new FrontShot(
+                    normalSpeed,
+                    48
+            );
+        }
+        else if (power < 16) {
+            mainShootingPattern = new FrontShot(
+                    normalSpeed,
+                    48
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    14,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle,
+                    rightAngle,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+        }
+        else if (power < 32) {
+            mainShootingPattern = new SpreadShot(
+                    normalSpeed,
+                    2,
+                    dualSpreadAngle,
+                    30,
+                    8f,
+                    null,
+                    null,
+                    null
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    14,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle,
+                    rightAngle,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+        }
+        else if (power < 48) {
+            mainShootingPattern = new SpreadShot(
+                    normalSpeed,
+                    3,
+                    spreadAngle,
+                    26
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    14,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle,
+                    rightAngle,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+        }
+        else if (power < 64) {
+            mainShootingPattern = new SpreadShot(
+                    normalSpeed,
+                    3,
+                    spreadAngle,
+                    26
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    12,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle,
+                    rightAngle,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+
+            homingCooldown = 15f / 60f;
+        }
+        else if (power < 80) {
+            mainShootingPattern = new SpreadShot(
+                    normalSpeed,
+                    3,
+                    spreadAngle,
+                    26
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    12,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle,
+                    rightAngle,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+        }
+        else if (power < 128) {
+            mainShootingPattern = new SpreadShot(
+                    normalSpeed,
+                    3,
+                    spreadAngle,
+                    26
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    8,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle - 10f,
+                    rightAngle + 10f,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+        }
+        else {
+            mainShootingPattern = new SpreadShot(
+                    normalSpeed,
+                    4,
+                    spreadAngle * 1.2f,
+                    24,
+                    16f,
+                    null,
+                    null,
+                    null
+            );
+
+            sideShootingPattern = new SideShot(
+                    homingSpeed,
+                    8,
+                    sideHOffset,
+                    sideVOffset,
+                    leftAngle - 10f,
+                    rightAngle + 10f,
+                    true,
+                    new HomingBulletMovement(360f),
+                    "bullet_amulet_homing"
+            );
+        }
+
+        setShootingPattern(mainShootingPattern);
     }
 
     // ==========================================
@@ -244,18 +474,26 @@ private void notifyGrazeChanged() {
     // ==========================================
 
     public void shoot(Enemy enemy) {
+        if (enemy == null || enemy.isDestroyed()) {
+            return;
+        }
+
         enemy.takeDamage(power);
 
         if (enemy.isDestroyed()) {
-            score += enemy.getScoreValue();
+            addScore(enemy.getScoreValue());
         }
     }
 
     public void shoot(Boss boss) {
+        if (boss == null || boss.isDestroyed()) {
+            return;
+        }
+
         boss.takeDamage(power);
 
         if (boss.isDestroyed()) {
-            score += boss.getScoreValue();
+            addScore(boss.getScoreValue());
         }
     }
 
@@ -269,57 +507,66 @@ private void notifyGrazeChanged() {
     }
 
     // ==========================================
-    // PROBLEM 5: SHOOT BULLET
+    // SHOOT BULLET
     // ==========================================
 
     public void shootBullet(BulletManager bulletManager) {
 
-        if (bulletManager == null) {
+        if (bulletManager == null || isDestroyed()) {
             return;
         }
 
-        if (shootTimer < shootCooldown) {
-            return;
+        float originX = x + width / 2f - 8f;
+        float originY = y + height;
+
+        if (shootTimer >= shootCooldown) {
+
+            if (mainShootingPattern != null) {
+                mainShootingPattern.execute(
+                        originX,
+                        originY,
+                        bulletManager,
+                        true
+                );
+            }
+            else {
+                bulletManager.spawnPlayerBullet(
+                        originX,
+                        originY,
+                        0f,
+                        720f,
+                        10 + power
+                );
+            }
+
+            shootTimer = 0f;
         }
 
-        if (shootingPattern != null) {
-            shootingPattern.execute(
-                    x + width / 2f - 8f,
-                    y + height,
+        if (sideShootingPattern != null
+                && homingShootTimer >= homingCooldown) {
+
+            sideShootingPattern.execute(
+                    originX,
+                    originY,
                     bulletManager,
                     true
             );
-        } else {
-            bulletManager.spawnPlayerBullet(
-                    x + width / 2f - 8f,
-                    y + height,
-                    0f,
-                    400f,
-                    10 + power
-            );
+
+            homingShootTimer = 0f;
         }
-
-        shootTimer = 0f;
-    }
-
-    public ShootingPattern getShootingPattern() {
-        return shootingPattern;
-    }
-
-    public void setShootingPattern(ShootingPattern shootingPattern) {
-        this.shootingPattern = shootingPattern;
     }
 
     // ==========================================
-    // PROBLEM 5: UPDATE
+    // UPDATE
     // ==========================================
 
     @Override
     public void update(float delta) {
 
-        updateAnimationTime(delta);
+        super.update(delta);
 
         shootTimer += delta;
+        homingShootTimer += delta;
 
         if (invulnerableTimer > 0f) {
             invulnerableTimer -= delta;
@@ -331,40 +578,64 @@ private void notifyGrazeChanged() {
     }
 
     // ==========================================
-    // PROBLEM 5: MOVE
+    // MOVE
     // ==========================================
 
     public void move(float dx, float dy) {
 
+        // InputHandler already multiplies dx and dy by delta.
+        // Therefore, do not multiply by delta again here.
         x += dx * movementSpeed;
         y += dy * movementSpeed;
 
+        // Keep player inside the game area.
         x = Math.max(32f, Math.min(x, 416f - width));
         y = Math.max(16f, Math.min(y, 560f - height));
     }
 
     // ==========================================
-    // PROBLEM 5: USE BOMB
+    // USE BOMB - FANTASY SEAL
     // ==========================================
 
     public void useBomb(
             BulletManager bulletManager,
             List<GameObject> entities) {
 
-        if (spellCards > 0) {
+        if (spellCards <= 0) {
+            System.out.println("[Player] No spell cards available!");
+            return;
+        }
 
-            spellCards--;
+        spellCards--;
+        notifySpellCardsChanged();
 
-            invulnerableTimer = 5f;
+        invulnerableTimer = 5f;
 
-            if (bulletManager != null) {
-                bulletManager.clearEnemyBullets(entities);
+        if (bulletManager != null) {
+
+            bulletManager.clearEnemyBullets(entities);
+
+            GameObject target = null;
+
+            if (entities != null) {
+                for (GameObject entity : entities) {
+                    if (entity instanceof Enemy
+                            && !entity.isDestroyed()) {
+                        target = entity;
+                        break;
+                    }
+                }
             }
 
-            System.out.println("[Player] Spell Card activated!");
-        } else {
-            System.out.println("[Player] No spell cards available!");
+            bulletManager.spawnBombOrbs(
+                    x + width / 2f,
+                    y + height / 2f,
+                    target,
+                    entities
+            );
         }
+
+        System.out.println("[Player] Fantasy Seal activated!");
     }
 
     public void useBomb(BulletManager bulletManager) {
@@ -372,12 +643,13 @@ private void notifyGrazeChanged() {
     }
 
     // ==========================================
-    // PROBLEM 5: GRAZE
+    // GRAZE
     // ==========================================
 
     public void addGraze() {
         grazeCount++;
         addScore(50);
+        notifyGrazeChanged();
     }
 
     // ==========================================
@@ -409,15 +681,26 @@ private void notifyGrazeChanged() {
         }
 
         score += item.getScoreValue();
-        power += item.getItemTypeEnum().getPowerBonus();
+
+        power = Math.min(
+                128,
+                power + item.getItemTypeEnum().getPowerBonus()
+        );
+
+        updatePowerStrategy();
 
         if (item.getItemTypeEnum().name().equals("LIFE")) {
             hp = Math.min(hp + 20, maxHp);
+            notifyHpChanged();
         }
 
         if (item.getItemTypeEnum().name().equals("BOMB")) {
             spellCards++;
+            notifySpellCardsChanged();
         }
+
+        notifyScoreChanged();
+        notifyPowerChanged();
 
         item.destroy();
 
@@ -426,14 +709,15 @@ private void notifyGrazeChanged() {
         try {
             AudioSystem.getInstance().playItemCollect();
             System.out.println("Pickup sound triggered!");
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.out.println("Pickup sound error:");
             e.printStackTrace();
         }
     }
 
     // ==========================================
-    // PROBLEM 6: SPRITEBATCH RENDER
+    // SPRITEBATCH RENDER
     // ==========================================
 
     @Override
@@ -447,7 +731,7 @@ private void notifyGrazeChanged() {
     }
 
     // ==========================================
-    // PROBLEM 6: FOCUS RENDERING
+    // FOCUS RENDERING
     // ==========================================
 
     @Override
@@ -475,7 +759,7 @@ private void notifyGrazeChanged() {
     }
 
     // ==========================================
-    // ADDITION: PLAYER DAMAGE AND LIVES
+    // PLAYER DAMAGE AND LIVES
     // ==========================================
 
     public void takeDamage(int damage) {
@@ -490,6 +774,8 @@ private void notifyGrazeChanged() {
             hp = 0;
         }
 
+        notifyHpChanged();
+
         if (hp <= 0) {
             loseLife();
         }
@@ -498,11 +784,14 @@ private void notifyGrazeChanged() {
     public void loseLife() {
 
         lives--;
+        notifyLivesChanged();
 
         if (lives > 0) {
             respawn();
-        } else {
+        }
+        else {
             hp = 0;
+            notifyHpChanged();
             destroy();
 
             System.out.println("[Player] Game Over!");
@@ -517,7 +806,14 @@ private void notifyGrazeChanged() {
 
         invulnerableTimer = 3f;
 
+        shootTimer = shootCooldown;
+        homingShootTimer = homingCooldown;
+
         activate();
+
+        notifyHpChanged();
+
+        updatePowerStrategy();
 
         System.out.println("[Player] Respawned!");
     }
@@ -532,13 +828,25 @@ private void notifyGrazeChanged() {
         grazeCount = 0;
 
         focused = false;
+
         shootTimer = shootCooldown;
+        homingShootTimer = homingCooldown;
+
         invulnerableTimer = 0f;
 
         x = 200f;
         y = 50f;
 
         activate();
+
+        updatePowerStrategy();
+
+        notifyHpChanged();
+        notifyLivesChanged();
+        notifySpellCardsChanged();
+        notifyPowerChanged();
+        notifyScoreChanged();
+        notifyGrazeChanged();
 
         System.out.println("[Player] Game reset!");
     }
