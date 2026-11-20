@@ -39,7 +39,7 @@ public class CollisionReferee {
 
                     Enemy enemy = (Enemy) entity;
 
-                    if (enemy.isDestroyed()) {
+                    if (enemy.isDestroyed() || enemy.isInvulnerable()) {
                         continue;
                     }
 

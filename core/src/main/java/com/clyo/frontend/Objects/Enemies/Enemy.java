@@ -20,6 +20,10 @@ public class Enemy extends EntityShooter {
 
     protected Color color = Color.RED;
 
+    // State Pattern: Boss phase controls
+    protected boolean invulnerable = false;
+    protected boolean surviveAtZero = false;
+
     // ==========================================
     // CONSTRUCTOR 1
     // ==========================================
@@ -118,6 +122,27 @@ public class Enemy extends EntityShooter {
         return maxHp;
     }
 
+    public void setHp(int hp) {
+        this.hp = Math.max(0, Math.min(hp, maxHp));
+    }
+
+    public void setMaxHp(int maxHp) {
+        this.maxHp = Math.max(1, maxHp);
+        this.hp = Math.min(this.hp, this.maxHp);
+    }
+
+    public void setInvulnerable(boolean invulnerable) {
+        this.invulnerable = invulnerable;
+    }
+
+    public boolean isInvulnerable() {
+        return invulnerable;
+    }
+
+    public void setSurviveAtZero(boolean surviveAtZero) {
+        this.surviveAtZero = surviveAtZero;
+    }
+
     public long getScoreValue() {
         return scoreValue;
     }
@@ -142,7 +167,7 @@ public class Enemy extends EntityShooter {
 
     public void takeDamage(int damage) {
 
-        if (isDestroyed() || damage <= 0) {
+        if (isDestroyed() || damage <= 0 || invulnerable) {
             return;
         }
 
@@ -154,6 +179,13 @@ public class Enemy extends EntityShooter {
         );
 
         if (hp == 0) {
+
+            if (surviveAtZero) {
+                System.out.println(
+                        name + " reached phase threshold!"
+                );
+                return;
+            }
 
             System.out.println(name + " was defeated!");
 

@@ -29,6 +29,8 @@ import com.clyo.frontend.systems.BulletManager;
 import com.clyo.frontend.systems.CollisionReferee;
 import com.clyo.frontend.systems.EntityFactory;
 
+import com.clyo.frontend.states.LevelWaveManager;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -50,16 +52,21 @@ public class Main extends ApplicationAdapter {
     private BulletManager bulletManager;
     private CollisionReferee collisionReferee;
 
+    // STATE PATTERN
+    private LevelWaveManager levelWaveManager;
+
     private InputHandler inputHandler;
     private GameHUD gameHUD;
 
     private AssetManager assetManager;
     private AudioSystem audioSystem;
 
-    // ==========================================
-    // FAIRY WAVE VARIABLES
-    // ==========================================
+    // BACKEND INTEGRATION
+    private GameAPI gameAPI;
+    private boolean scoreSubmitted = false;
+    private boolean leaderboardRequested = false;
 
+    // FAIRY WAVE VARIABLES
     private float fairySpawnTimer = 0f;
     private int fairySpawnIndex = 0;
 
@@ -70,22 +77,15 @@ public class Main extends ApplicationAdapter {
     private static final float FAIRY_FIRST_SPAWN = 1f;
     private static final float FAIRY_SPAWN_INTERVAL = 0.267f;
 
-    // ==========================================
     // BOSS VARIABLES
-    // ==========================================
-
     private float enemyShootTimer = 0f;
-
     private float bossPhaseTimer = 0f;
     private int currentBossPhase = 0;
 
     private static final float BOSS_SHOOT_INTERVAL = 1.5f;
     private static final float BOSS_PHASE_INTERVAL = 4f;
 
-    // ==========================================
     // CREATE
-    // ==========================================
-
     @Override
     public void create() {
 
@@ -104,10 +104,10 @@ public class Main extends ApplicationAdapter {
         audioSystem = AudioSystem.getInstance();
         audioSystem.init();
 
-        // ======================================
-        // CREATE PLAYER
-        // ======================================
+        // Initialize backend API
+        gameAPI = new GameAPI();
 
+        // CREATE PLAYER
         player = EntityFactory.createPlayer(
                 200, 50,
                 "Reimu Hakurei",
@@ -116,10 +116,7 @@ public class Main extends ApplicationAdapter {
                 3
         );
 
-        // ======================================
         // CREATE BOSS
-        // ======================================
-
         boss = EntityFactory.createBoss(
                 200, 420,
                 "Rumia",
@@ -128,10 +125,7 @@ public class Main extends ApplicationAdapter {
 
         configureBoss();
 
-        // ======================================
         // CREATE ITEMS
-        // ======================================
-
         powerItem = EntityFactory.createItem(
                 180, 450,
                 ItemType.POWER
@@ -142,35 +136,34 @@ public class Main extends ApplicationAdapter {
                 ItemType.POINT
         );
 
-        // ======================================
         // REGISTER ENTITIES
-        // ======================================
-
         entities.add(player);
         entities.add(boss);
         entities.add(powerItem);
         entities.add(pointItem);
 
-        // Give BulletManager access to entities
         bulletManager.setEntities(entities);
 
-        // ======================================
-        // INPUT HANDLER AND HUD
-        // ======================================
+        // INITIALIZE LEVEL WAVE MANAGER
+        levelWaveManager = new LevelWaveManager();
 
+        levelWaveManager.setPlayer(player);
+        levelWaveManager.setBoss(boss);
+        levelWaveManager.setEntities(entities);
+        levelWaveManager.setBulletManager(bulletManager);
+
+        // INPUT HANDLER AND HUD
         inputHandler = new InputHandler(entities);
         gameHUD = new GameHUD();
 
         player.registerObserver(gameHUD);
 
         System.out.println("[Main] Game initialized!");
+        System.out.println("[Main] LevelWaveManager initialized!");
         System.out.println("[Main] Total entities: " + entities.size());
     }
 
-    // ==========================================
     // CONFIGURE BOSS
-    // ==========================================
-
     private void configureBoss() {
 
         if (boss == null) {
@@ -204,10 +197,7 @@ public class Main extends ApplicationAdapter {
         currentBossPhase = 0;
     }
 
-    // ==========================================
     // FAIRY WAVE SPAWNING
-    // ==========================================
-
     private void updateFairyWave(float delta) {
 
         fairySpawnTimer += delta;
@@ -222,15 +212,11 @@ public class Main extends ApplicationAdapter {
             }
 
             spawnFairy(fairySpawnIndex);
-
             fairySpawnIndex++;
         }
     }
 
-    // ==========================================
     // SPAWN FAIRY
-    // ==========================================
-
     private void spawnFairy(int index) {
 
         float spawnX = fairySpawnX[index];
@@ -259,10 +245,7 @@ public class Main extends ApplicationAdapter {
         );
     }
 
-    // ==========================================
     // FAIRY SHOOTING SCHEDULER
-    // ==========================================
-
     private void updateFairyShooting(float delta) {
 
         for (Fairy currentFairy : fairy) {
@@ -273,16 +256,12 @@ public class Main extends ApplicationAdapter {
             }
 
             if (currentFairy.canShoot(delta)) {
-
                 currentFairy.shootBullet(bulletManager);
             }
         }
     }
 
-    // ==========================================
     // CLEAN FAIRY LIST
-    // ==========================================
-
     private void cleanFairyList() {
 
         Iterator<Fairy> iterator = fairy.iterator();
@@ -300,10 +279,7 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // ==========================================
     // BOSS SHOOTING SCHEDULER
-    // ==========================================
-
     private void updateEnemyScheduler(float delta) {
 
         if (boss == null || boss.isDestroyed()) {
@@ -315,15 +291,11 @@ public class Main extends ApplicationAdapter {
         if (enemyShootTimer >= BOSS_SHOOT_INTERVAL) {
 
             boss.shootBullet(bulletManager);
-
             enemyShootTimer = 0f;
         }
     }
 
-    // ==========================================
     // BOSS PHASE SWITCHING
-    // ==========================================
-
     private void updateBossPhase(float delta) {
 
         if (boss == null || boss.isDestroyed()) {
@@ -339,8 +311,6 @@ public class Main extends ApplicationAdapter {
             currentBossPhase = (currentBossPhase + 1) % 2;
 
             if (currentBossPhase == 0) {
-
-                // PHASE 0: TARGETED SPREAD SHOT
 
                 boss.setMovementPattern(
                         new TargetPointMovement(
@@ -367,8 +337,6 @@ public class Main extends ApplicationAdapter {
 
             } else {
 
-                // PHASE 1: ALTERNATING RING SHOT
-
                 boss.setMovementPattern(
                         new TargetPointMovement(
                                 280f,
@@ -392,10 +360,7 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // ==========================================
     // UPDATE AND CLEAN ENTITIES
-    // ==========================================
-
     public <T extends GameObject> void updateAndClean(
             List<T> list,
             float delta,
@@ -421,10 +386,117 @@ public class Main extends ApplicationAdapter {
         }
     }
 
-    // ==========================================
-    // RESTART GAME
-    // ==========================================
+    // SUBMIT SCORE TO BACKEND
+    private void submitFinalScore() {
 
+        if (scoreSubmitted || !player.isGameOver()) {
+            return;
+        }
+
+        scoreSubmitted = true;
+
+        int finalScore = (int) Math.min(
+                Integer.MAX_VALUE,
+                Math.max(0L, gameHUD.getScore())
+        );
+
+        gameHUD.setScoreboardStatus("Submitting score...");
+
+        System.out.println(
+                "[Main] Submitting score: " + finalScore
+        );
+
+        gameAPI.submitScore(
+                "Reimu Hakurei",
+                finalScore,
+                new GameAPI.ScoreCallback() {
+
+                    @Override
+                    public void onSuccess() {
+
+                        Gdx.app.postRunnable(() -> {
+                            gameHUD.setScoreboardStatus(
+                                    "Score submitted! Loading leaderboard..."
+                            );
+
+                            System.out.println(
+                                    "[Main] Score submitted successfully!"
+                            );
+
+                            requestLeaderboard();
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+
+                        Gdx.app.postRunnable(() -> {
+                            gameHUD.setScoreboardStatus(
+                                    "Score submission failed: " + message
+                            );
+
+                            System.out.println(
+                                    "[Main] Score submission failed: " + message
+                            );
+
+                            requestLeaderboard();
+                        });
+                    }
+                }
+        );
+    }
+
+    // GET LEADERBOARD FROM BACKEND
+    private void requestLeaderboard() {
+
+        if (leaderboardRequested) {
+            return;
+        }
+
+        leaderboardRequested = true;
+
+        gameHUD.setScoreboardStatus("Loading leaderboard...");
+
+        gameAPI.getLeaderboard(
+                new GameAPI.LeaderboardCallback() {
+
+                    @Override
+                    public void onSuccess(List<ScoreEntry> scores) {
+
+                        Gdx.app.postRunnable(() -> {
+
+                            gameHUD.showLeaderboard(scores);
+
+                            gameHUD.setScoreboardStatus(
+                                    "Leaderboard loaded!"
+                            );
+
+                            System.out.println(
+                                    "[Main] Leaderboard loaded: "
+                                            + scores.size() + " scores"
+                            );
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+
+                        Gdx.app.postRunnable(() -> {
+
+                            gameHUD.setScoreboardStatus(
+                                    "Failed to load leaderboard: " + message
+                            );
+
+                            System.out.println(
+                                    "[Main] Leaderboard error: " + message
+                            );
+                        });
+                    }
+                }
+        );
+    }
+
+    // RESTART GAME
     private void restartGame() {
 
         System.out.println("[Main] Restarting game...");
@@ -437,6 +509,14 @@ public class Main extends ApplicationAdapter {
         fairy.clear();
 
         player.resetGame();
+
+        // Reset backend flags
+        scoreSubmitted = false;
+        leaderboardRequested = false;
+
+        gameHUD.clearScoreboard();
+        gameHUD.setStageClear(false);
+        gameHUD.setScoreboardStatus("");
 
         // Reset wave timers
         fairySpawnTimer = 0f;
@@ -469,25 +549,24 @@ public class Main extends ApplicationAdapter {
         entities.add(pointItem);
 
         bulletManager.setEntities(entities);
-
         inputHandler.setEntities(entities);
+
+        // Update LevelWaveManager references
+        levelWaveManager.setPlayer(player);
+        levelWaveManager.setBoss(boss);
+        levelWaveManager.setEntities(entities);
+        levelWaveManager.setBulletManager(bulletManager);
 
         System.out.println("[Main] Game restarted!");
     }
 
-    // ==========================================
     // RENDER
-    // ==========================================
-
     @Override
     public void render() {
 
         float delta = Gdx.graphics.getDeltaTime();
 
-        // ======================================
         // RESTART WHEN GAME OVER
-        // ======================================
-
         if (Gdx.input != null
                 && player.isGameOver()
                 && Gdx.input.isKeyJustPressed(Input.Keys.R)) {
@@ -495,10 +574,12 @@ public class Main extends ApplicationAdapter {
             restartGame();
         }
 
-        // ======================================
-        // PLAYER INPUT
-        // ======================================
+        // SUBMIT SCORE WHEN GAME OVER
+        if (player.isGameOver()) {
+            submitFinalScore();
+        }
 
+        // PLAYER INPUT
         if (!player.isGameOver()) {
 
             List<Command> commands =
@@ -508,26 +589,16 @@ public class Main extends ApplicationAdapter {
                 command.execute(player, bulletManager);
             }
 
-            // ==================================
             // FAIRY WAVE
-            // ==================================
-
             updateFairyWave(delta);
-
             updateFairyShooting(delta);
 
-            // ==================================
             // BOSS SCHEDULERS
-            // ==================================
-
             updateEnemyScheduler(delta);
             updateBossPhase(delta);
         }
 
-        // ======================================
         // UPDATE ENTITIES
-        // ======================================
-
         updateAndClean(
                 entities,
                 delta,
@@ -537,30 +608,21 @@ public class Main extends ApplicationAdapter {
 
         cleanFairyList();
 
-        // ======================================
         // UPDATE BULLETS
-        // ======================================
-
         bulletManager.update(
                 delta,
                 416,
                 560
         );
 
-        // ======================================
         // COLLISIONS
-        // ======================================
-
         collisionReferee.resolveCollisions(
                 player,
                 entities,
                 bulletManager
         );
 
-        // ======================================
         // CLEAR SCREEN
-        // ======================================
-
         ScreenUtils.clear(
                 0.1f,
                 0.1f,
@@ -568,10 +630,7 @@ public class Main extends ApplicationAdapter {
                 1f
         );
 
-        // ======================================
         // DRAW SPRITES AND HUD
-        // ======================================
-
         batch.begin();
 
         for (GameObject entity : entities) {
@@ -587,10 +646,7 @@ public class Main extends ApplicationAdapter {
 
         batch.end();
 
-        // ======================================
         // DRAW ENTITY SHAPES
-        // ======================================
-
         shapeRenderer.begin(
                 ShapeRenderer.ShapeType.Filled
         );
@@ -604,17 +660,11 @@ public class Main extends ApplicationAdapter {
 
         shapeRenderer.end();
 
-        // ======================================
         // HUD BACKGROUND
-        // ======================================
-
         gameHUD.renderBackground();
     }
 
-    // ==========================================
     // DISPOSE
-    // ==========================================
-
     @Override
     public void dispose() {
 
